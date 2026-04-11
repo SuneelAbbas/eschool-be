@@ -72,11 +72,14 @@ class AuthController extends Controller
 
         $user->api_token = bin2hex(random_bytes(40));
         $user->save();
+        
+        $institute = Institute::where('user_id', $user->id)->first();
 
         return response()->json([
             'message' => 'Login successful',
             'data' => [
                 'user' => $user,
+                'institute' => $institute,
                 'token' => $user->api_token,
             ],
         ]);
