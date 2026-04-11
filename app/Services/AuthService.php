@@ -34,7 +34,7 @@ class AuthService
                 'email' => $data['email'],
                 'password' => Hash::make($data['password']),
                 'api_token' => bin2hex(random_bytes(40)),
-                'user_type' => 'institute_admin',
+                'user_type' => 'admin',
             ]);
 
             $logoInitials = $this->generateLogoInitials($data['institute_name']);

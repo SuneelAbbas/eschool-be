@@ -18,6 +18,7 @@ class User extends Authenticatable
         'password',
         'api_token',
         'user_type',
+        'institute_id',
     ];
 
     protected $hidden = [
@@ -44,8 +45,46 @@ class User extends Authenticatable
         return $this->user_type === 'super_admin';
     }
 
-    public function isInstituteAdmin(): bool
+    public function isAdmin(): bool
     {
-        return $this->user_type === 'institute_admin';
+        return $this->user_type === 'admin';
+    }
+
+    public function isTeacher(): bool
+    {
+        return $this->user_type === 'teacher';
+    }
+
+    public function isStudent(): bool
+    {
+        return $this->user_type === 'student';
+    }
+
+    public function isParent(): bool
+    {
+        return $this->user_type === 'parent';
+    }
+
+    public function isAccountant(): bool
+    {
+        return $this->user_type === 'accountant';
+    }
+
+    public function isLibrarian(): bool
+    {
+        return $this->user_type === 'librarian';
+    }
+
+    public static function validUserTypes(): array
+    {
+        return [
+            'super_admin',
+            'admin',
+            'teacher',
+            'student',
+            'parent',
+            'accountant',
+            'librarian',
+        ];
     }
 }
