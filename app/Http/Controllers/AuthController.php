@@ -2,124 +2,138 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Institute;
-use App\Models\User;
+use App\Http\Requests\RegisterInstituteRequest;
+use App\Http\Resources\UserResource;
+use App\Http\Resources\InstituteResource;
+use App\Services\AuthService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
-    public function register(Request $request)
+    public function __construct(
+        private readonly AuthService $authService
+    ) {}
+
+    public function register(RegisterInstituteRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'first_name' => ['required', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'institute.name' => ['required', 'string', 'max:255'],
-            'institute.logo' => ['nullable', 'string', 'max:255'],
-            'institute.address' => ['nullable', 'string', 'max:255'],
-            'institute.contact_email' => ['nullable', 'email', 'max:255'],
-            'institute.contact_phone' => ['nullable', 'string', 'max:50'],
-            'institute.type' => ['nullable', 'string', 'max:255'],
-            'institute.city' => ['nullable', 'string', 'max:255'],
-            'institute.no_of_students' => ['nullable', 'integer'],
-            'institute.description' => ['nullable', 'string', 'max:2000'],
-            'institute.status' => ['nullable', 'string', 'max:50'],
-            'institute.plan_id' => ['nullable', 'integer'],
-        ]);
+        $result = $this->authService->registerInstitute($request->validated());
 
-        $user = null;
-        $institute = null;
+        if ($result['exists']) {
+            $institute = $result['institute'];
+            
+            if (!$institute) {
+                return response()->json([
+                    'message' => 'An account with this email already exists.',
+                    'data' => [
+                        'user' => new UserResource($result['user']),
+                        'institute' => null,
+                    ],
+                ], 409);
+            }
 
-        DB::transaction(function () use ($data, &$user, &$institute) {
-            $user = User::create([
-                'first_name' => $data['first_name'],
-                'last_name' => $data['last_name'],
-                'email' => $data['email'],
-                'password' => Hash::make($data['password']),
-                'api_token' => bin2hex(random_bytes(20)),
-            ]);
+            $statusMessage = match ($institute->status) {
+                'pending' => 'An account with this email already exists. Your registration is pending approval.',
+                'rejected' => 'Your registration was rejected. You may register again with updated information.',
+                'suspended' => 'Your account has been suspended. Please contact support.',
+                default => 'An account with this email already exists.',
+            };
 
-            $instituteData = $data['institute'];
-            $instituteData['user_id'] = $user->id;
-            $institute = Institute::create($instituteData);
-        });
+            return response()->json([
+                'message' => $statusMessage,
+                'data' => [
+                    'user' => new UserResource($result['user']),
+                    'institute' => new InstituteResource($institute),
+                ],
+                'institute_status' => $institute->status,
+            ], 409);
+        }
 
         return response()->json([
-            'message' => 'User and institute registered successfully',
+            'message' => 'Registration successful. Your institute is pending approval.',
             'data' => [
-                'user' => $user,
-                'institute' => $institute,
-                'token' => $user->api_token,
+                'user' => new UserResource($result['user']),
+                'institute' => new InstituteResource($result['institute']),
+                'token' => $result['token'],
             ],
         ], 201);
     }
 
-    public function login(Request $request)
+    public function login(Request $request): JsonResponse
     {
-        $data = $request->validate([
+        $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
         ]);
 
-        $user = User::where('email', $data['email'])->first();
-        if (!$user || !Hash::check($data['password'], $user->password)) {
-            return response()->json(['message' => 'Invalid credentials'], 401);
+        $result = $this->authService->login($request->email, $request->password);
+
+        if (!$result) {
+            return response()->json([
+                'message' => 'Invalid credentials.',
+            ], 401);
         }
 
-        $user->api_token = bin2hex(random_bytes(40));
-        $user->save();
-        
-        $institute = Institute::where('user_id', $user->id)->first();
+        if (isset($result['pending_status'])) {
+            $statusMessage = match ($result['pending_status']) {
+                'pending' => 'Your institute is pending approval. You will have full access once approved.',
+                'rejected' => 'Your registration was rejected. You may register again with updated information.',
+                'suspended' => 'Your account has been suspended. Please contact support.',
+                default => 'Your account is not active.',
+            };
+
+            return response()->json([
+                'message' => $statusMessage,
+                'data' => [
+                    'user' => new UserResource($result['user']),
+                    'institute' => $result['institute'] ? new InstituteResource($result['institute']) : null,
+                    'token' => $result['token'],
+                ],
+                'institute_status' => $result['pending_status'],
+            ], 403);
+        }
 
         return response()->json([
-            'message' => 'Login successful',
+            'message' => 'Login successful.',
             'data' => [
-                'user' => $user,
-                'institute' => $institute,
-                'token' => $user->api_token,
+                'user' => new UserResource($result['user']),
+                'institute' => $result['institute'] ? new InstituteResource($result['institute']) : null,
+                'token' => $result['token'],
             ],
         ]);
     }
 
-    public function me(Request $request)
+    public function me(Request $request): JsonResponse
     {
         $user = $this->getUserFromToken($request);
         if (!$user) {
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        return response()->json(['data' => $user]);
+        return response()->json([
+            'data' => new UserResource($user),
+        ]);
     }
 
-    public function logout(Request $request)
+    public function logout(Request $request): JsonResponse
     {
         $user = $this->getUserFromToken($request);
         if (!$user) {
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        $user->api_token = null;
-        $user->save();
+        $this->authService->logout($user);
 
         return response()->json(['message' => 'Logged out successfully']);
     }
 
-    private function getUserFromToken(Request $request): ?User
+    private function getUserFromToken(Request $request): ?\App\Models\User
     {
-        $token = null;
-        $bearer = $request->bearerToken();
-        if ($bearer) {
-            $token = $bearer;
-        }
-
+        $token = $request->bearerToken();
         if (!$token) {
             return null;
         }
 
-        return User::where('api_token', $token)->first();
+        return \App\Models\User::where('api_token', $token)->first();
     }
 }
