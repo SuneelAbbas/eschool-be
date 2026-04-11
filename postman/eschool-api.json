@@ -1,0 +1,718 @@
+{
+	"info": {
+		"_postman_id": "eschool-api-collection-v1",
+		"name": "E-School Platform API v1",
+		"description": "E-School Platform Backend API Collection - Laravel 12",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8000/api/v1",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "institute_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "grade_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "section_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "class_section_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "student_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "teacher_id",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{token}}",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "AUTHENTICATION",
+			"item": [
+				{
+					"name": "Register Institute & User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('token', jsonData.data.token);",
+									"    pm.collectionVariables.set('institute_id', jsonData.data.institute.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"first_name\": \"John\",\n    \"last_name\": \"Doe\",\n    \"email\": \"john.doe@example.com\",\n    \"password\": \"password123\",\n    \"password_confirmation\": \"password123\",\n    \"institute\": {\n        \"name\": \"ABC School\",\n        \"logo\": null,\n        \"address\": \"123 Education Street\",\n        \"contact_email\": \"contact@abcschool.com\",\n        \"contact_phone\": \"+92-300-1234567\",\n        \"type\": \"private\",\n        \"city\": \"Lahore\",\n        \"no_of_students\": 500,\n        \"description\": \"A premier educational institution\",\n        \"status\": \"active\"\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/institute-register",
+							"host": ["{{baseUrl}}"],
+							"path": ["institute-register"]
+						},
+						"description": "Register a new user with their institute. Returns user data, institute data, and authentication token."
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('token', jsonData.data.token);",
+									"    pm.collectionVariables.set('institute_id', jsonData.data.institute.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"john.doe@example.com\",\n    \"password\": \"password123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["login"]
+						},
+						"description": "Authenticate user and receive API token."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Current User",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/me",
+							"host": ["{{baseUrl}}"],
+							"path": ["me"]
+						},
+						"description": "Get authenticated user details using Bearer token."
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/logout",
+							"host": ["{{baseUrl}}"],
+							"path": ["logout"]
+						},
+						"description": "Invalidate the current API token and logout."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "GRADES",
+			"item": [
+				{
+					"name": "Get All Grades",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/grades?institute_id={{institute_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["grades"],
+							"query": [
+								{
+									"key": "institute_id",
+									"value": "{{institute_id}}"
+								}
+							]
+						},
+						"description": "Get all grades for the authenticated user's institute."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Single Grade",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/grades/{{grade_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["grades", "{{grade_id}}"]
+						},
+						"description": "Get a single grade by ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Grade",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('grade_id', jsonData.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Grade 9\",\n    \"description\": \"Secondary level - Science and Arts stream\",\n    \"institute_id\": {{institute_id}}\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/grades",
+							"host": ["{{baseUrl}}"],
+							"path": ["grades"]
+						},
+						"description": "Create a new grade for the institute."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Grade",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Grade 9 Updated\",\n    \"description\": \"Updated description\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/update-grade/{{grade_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["update-grade", "{{grade_id}}"]
+						},
+						"description": "Update an existing grade."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Grade",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/delete-grade/{{grade_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["delete-grade", "{{grade_id}}"]
+						},
+						"description": "Delete a grade by ID."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "SECTIONS",
+			"item": [
+				{
+					"name": "Get All Sections",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/sections",
+							"host": ["{{baseUrl}}"],
+							"path": ["sections"]
+						},
+						"description": "Get all sections for the authenticated user."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Single Section",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/sections/{{section_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["sections", "{{section_id}}"]
+						},
+						"description": "Get a single section by ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Section",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('section_id', jsonData.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Section A\",\n    \"description\": \"Science section\",\n    \"institute_id\": {{institute_id}}\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/sections",
+							"host": ["{{baseUrl}}"],
+							"path": ["sections"]
+						},
+						"description": "Create a new section."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Section",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Section A Updated\",\n    \"description\": \"Updated description\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/update-sections/{{section_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["update-sections", "{{section_id}}"]
+						},
+						"description": "Update an existing section."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Section",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/sections/{{section_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["sections", "{{section_id}}"]
+						},
+						"description": "Delete a section by ID."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "CLASS SECTIONS",
+			"item": [
+				{
+					"name": "Get All Class Sections",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/class-sections",
+							"host": ["{{baseUrl}}"],
+							"path": ["class-sections"]
+						},
+						"description": "Get all class sections."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Single Class Section",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/class-sections/{{class_section_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["class-sections", "{{class_section_id}}"]
+						},
+						"description": "Get a single class section by ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Class Section",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('class_section_id', jsonData.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"9-A\",\n    \"room_number\": \"Room 101\",\n    \"capacity\": \"35\",\n    \"teacher_id\": null,\n    \"grade_id\": {{grade_id}},\n    \"institute_id\": {{institute_id}}\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/class-sections",
+							"host": ["{{baseUrl}}"],
+							"path": ["class-sections"]
+						},
+						"description": "Create a new class section linked to a grade."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Class Section",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"9-A Updated\",\n    \"room_number\": \"Room 102\",\n    \"capacity\": \"40\",\n    \"teacher_id\": {{teacher_id}},\n    \"grade_id\": {{grade_id}}\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/update-class-sections/{{class_section_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["update-class-sections", "{{class_section_id}}"]
+						},
+						"description": "Update an existing class section."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Class Section",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/class-sections/{{class_section_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["class-sections", "{{class_section_id}}"]
+						},
+						"description": "Delete a class section by ID."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "STUDENTS",
+			"item": [
+				{
+					"name": "Get All Students",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/students",
+							"host": ["{{baseUrl}}"],
+							"path": ["students"]
+						},
+						"description": "Get all students."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Single Student",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/students/{{student_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["students", "{{student_id}}"]
+						},
+						"description": "Get a single student by ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Student",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('student_id', jsonData.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"first_name\": \"Ahmed\",\n    \"last_name\": \"Khan\",\n    \"email\": \"ahmed.khan@example.com\",\n    \"registration_date\": \"2024-01-15\",\n    \"registration_number\": \"REG-001\",\n    \"roll_no\": \"9A-001\",\n    \"grade_id\": {{grade_id}},\n    \"section_id\": {{section_id}},\n    \"gender\": \"Male\",\n    \"mobile_number\": \"0300-1234567\",\n    \"parents_name\": \"Mr. Khan\",\n    \"parents_mobile_number\": \"0301-7654321\",\n    \"date_of_birth\": \"2009-03-15\",\n    \"blood_group\": \"A+\",\n    \"address\": \"123 Main Street, Lahore\",\n    \"institute_id\": {{institute_id}},\n    \"user_id\": 1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/students",
+							"host": ["{{baseUrl}}"],
+							"path": ["students"]
+						},
+						"description": "Create a new student."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Student",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"first_name\": \"Ahmed Updated\",\n    \"last_name\": \"Khan\",\n    \"mobile_number\": \"0300-9999999\",\n    \"address\": \"456 New Street, Lahore\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/students/{{student_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["students", "{{student_id}}"]
+						},
+						"description": "Update an existing student."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Student",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/students/{{student_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["students", "{{student_id}}"]
+						},
+						"description": "Delete a student by ID."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "TEACHERS",
+			"item": [
+				{
+					"name": "Get All Teachers",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/teachers",
+							"host": ["{{baseUrl}}"],
+							"path": ["teachers"]
+						},
+						"description": "Get all teachers."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Single Teacher",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/teachers/{{teacher_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["teachers", "{{teacher_id}}"]
+						},
+						"description": "Get a single teacher by ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Teacher",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('teacher_id', jsonData.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"first_name\": \"Sarah\",\n    \"last_name\": \"Ali\",\n    \"email\": \"sarah.ali@school.com\",\n    \"join_date\": \"2024-01-01\",\n    \"cnic_number\": \"35201-1234567-8\",\n    \"subject\": \"Mathematics\",\n    \"gender\": \"Female\",\n    \"mobile_number\": \"0300-5555555\",\n    \"date_of_birth\": \"1990-05-15\",\n    \"blood_group\": \"O+\",\n    \"address\": \"456 Teacher Lane, Lahore\",\n    \"academic_qualification\": \"M.Sc. Mathematics\",\n    \"school_id\": {{institute_id}}\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/teachers",
+							"host": ["{{baseUrl}}"],
+							"path": ["teachers"]
+						},
+						"description": "Create a new teacher."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Teacher",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"first_name\": \"Sarah Updated\",\n    \"subject\": \"Physics\",\n    \"mobile_number\": \"0300-6666666\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/teachers/{{teacher_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["teachers", "{{teacher_id}}"]
+						},
+						"description": "Update an existing teacher."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Teacher",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/teachers/{{teacher_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["teachers", "{{teacher_id}}"]
+						},
+						"description": "Delete a teacher by ID."
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
