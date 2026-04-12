@@ -6,6 +6,7 @@ use App\Http\Controllers\SectionController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\TeacherController;
 use App\Http\Controllers\ClassSectionController;
+use App\Http\Controllers\AttendanceController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/institute-register', [AuthController::class, 'register']);
@@ -53,5 +54,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/students/{id}', [StudentController::class, 'show']);
         Route::put('/students/{id}', [StudentController::class, 'update']);
         Route::delete('/students/{id}', [StudentController::class, 'destroy']);
+    });
+
+    Route::middleware('role:admin,teacher')->group(function () {
+        Route::get('/attendance', [AttendanceController::class, 'index']);
+        Route::post('/attendance', [AttendanceController::class, 'store']);
+        Route::get('/attendance/{id}', [AttendanceController::class, 'show']);
+        Route::put('/attendance/{id}', [AttendanceController::class, 'update']);
+        Route::delete('/attendance/{id}', [AttendanceController::class, 'destroy']);
+        Route::get('/attendance/report', [AttendanceController::class, 'report']);
+        Route::get('/attendance/section', [AttendanceController::class, 'sectionAttendance']);
     });
 });
