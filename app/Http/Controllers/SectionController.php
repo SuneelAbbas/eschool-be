@@ -2,101 +2,116 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\SectionRequest;
+use App\Http\Resources\SectionResource;
 use App\Models\Section;
-use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class SectionController extends Controller
 {
-    private function getUserFromToken(Request $request): ?User
+    public function index(Request $request): JsonResponse
     {
-        $token = $request->bearerToken();
-        if (!$token) {
-            return null;
-        }
+        $user = $request->user();
 
-        return User::where('api_token', $token)->first();
-    }
+        $sections = Section::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->whereHas('grade', function ($q) use ($user) {
+                $q->where('institute_id', $user->institute_id);
+            });
+        })->with('grade')->get();
 
-    public function index(Request $request)
-    {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['status' => 'error','message' => 'Unauthorized'], 401);
-        }
-
-        return response()->json(['status' => 'success', 'data' => Section::where('user_id', $user->id)->get()]);
-    }
-
-    public function store(Request $request)
-    {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['status' => 'error','message' => 'Unauthorized'], 401);
-        }
-
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'institute_id' => ['required', 'integer'],
+        return response()->json([
+            'success' => true,
+            'data' => SectionResource::collection($sections),
         ]);
+    }
 
-        $data['user_id'] = $user->id;
+    public function store(SectionRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $data = $request->validated();
+
         $section = Section::create($data);
 
-        return response()->json(['status' => 'success', 'data' => $section], 201);
+        return response()->json([
+            'success' => true,
+            'message' => 'Section created successfully',
+            'data' => new SectionResource($section->load('grade')),
+        ], 201);
     }
 
-    public function show(Request $request, $id)
+    public function show(Request $request, int $id): JsonResponse
     {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['status' => 'error','message' => 'Unauthorized'], 401);
-        }
+        $user = $request->user();
 
-        $section = Section::where('id', $id)->where('user_id', $user->id)->first();
+        $section = Section::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->whereHas('grade', function ($q) use ($user) {
+                $q->where('institute_id', $user->institute_id);
+            });
+        })->with('grade')->find($id);
+
         if (!$section) {
-            return response()->json(['status' => 'error','message' => 'Section not found'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Section not found',
+            ], 404);
         }
 
-        return response()->json(['status' => 'success', 'data' => $section]);
-    }
-
-    public function update(Request $request, $id)
-    {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['status' => 'error','message' => 'Unauthorized'], 401);
-        }
-
-        $section = Section::where('id', $id)->where('user_id', $user->id)->first();
-        if (!$section) {
-            return response()->json(['status' => 'error','message' => 'Section not found'], 404);
-        }
-
-        $data = $request->validate([
-            'name' => ['nullable', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'institute_id' => ['nullable', 'integer'],
+        return response()->json([
+            'success' => true,
+            'data' => new SectionResource($section),
         ]);
-
-        $section->update($data);
-        return response()->json(['status' => 'success', 'data' => $section]);
     }
 
-    public function destroy(Request $request, $id)
+    public function update(SectionRequest $request, int $id): JsonResponse
     {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['status' => 'error','message' => 'Unauthorized'], 401);
+        $user = $request->user();
+
+        $section = Section::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->whereHas('grade', function ($q) use ($user) {
+                $q->where('institute_id', $user->institute_id);
+            });
+        })->find($id);
+
+        if (!$section) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Section not found',
+            ], 404);
         }
 
-        $section = Section::where('id', $id)->where('user_id', $user->id)->first();
+        $data = $request->validated();
+        $section->update($data);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Section updated successfully',
+            'data' => new SectionResource($section->load('grade')),
+        ]);
+    }
+
+    public function destroy(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+
+        $section = Section::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->whereHas('grade', function ($q) use ($user) {
+                $q->where('institute_id', $user->institute_id);
+            });
+        })->find($id);
+
         if (!$section) {
-            return response()->json(['status' => 'error','message' => 'Section not found'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Section not found',
+            ], 404);
         }
 
         $section->delete();
-        return response()->json(['status' => 'success', 'message' => 'Section deleted']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Section deleted successfully',
+        ]);
     }
 }

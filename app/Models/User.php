@@ -2,21 +2,21 @@
 
 namespace App\Models;
 
-use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
         'first_name',
         'last_name',
         'email',
         'password',
-        'api_token',
         'user_type',
         'institute_id',
     ];
@@ -24,7 +24,6 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
-        'api_token',
     ];
 
     protected function casts(): array
@@ -35,7 +34,7 @@ class User extends Authenticatable
         ];
     }
 
-    public function institute()
+    public function institute(): BelongsTo
     {
         return $this->belongsTo(Institute::class);
     }
@@ -73,6 +72,20 @@ class User extends Authenticatable
     public function isLibrarian(): bool
     {
         return $this->user_type === 'librarian';
+    }
+
+    public function hasRole(array|string $roles): bool
+    {
+        $roles = is_string($roles) ? [$roles] : $roles;
+        return in_array($this->user_type, $roles);
+    }
+
+    public function canAccessInstitute(int $instituteId): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+        return $this->institute_id === $instituteId;
     }
 
     public static function validUserTypes(): array

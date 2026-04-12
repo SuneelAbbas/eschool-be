@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Institute;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\NewAccessToken;
 
 class AuthService
 {
@@ -14,7 +15,7 @@ class AuthService
         $existingUser = User::where('email', $data['email'])->first();
 
         if ($existingUser) {
-            $institute = Institute::where('user_id', $existingUser->id)->first();
+            $institute = Institute::where('admin_user_id', $existingUser->id)->first();
             
             return [
                 'exists' => true,
@@ -33,7 +34,6 @@ class AuthService
                 'last_name' => $data['last_name'],
                 'email' => $data['email'],
                 'password' => Hash::make($data['password']),
-                'api_token' => bin2hex(random_bytes(40)),
                 'user_type' => 'admin',
             ]);
 
@@ -50,16 +50,22 @@ class AuthService
                 'no_of_students' => $data['institute_no_of_students'] ?? null,
                 'description' => $data['institute_description'] ?? null,
                 'status' => 'pending',
-                'user_id' => $user->id,
+                'admin_user_id' => $user->id,
                 'plan_id' => $data['plan_id'] ?? null,
             ]);
+
+                $user->institute_id = $institute->id;
+            $user->save();
         });
+
+        $plainTextToken = $user->createToken('auth-token')->plainTextToken;
+        $user->refresh();
 
         return [
             'exists' => false,
             'user' => $user,
             'institute' => $institute,
-            'token' => $user->api_token,
+            'token' => $plainTextToken,
         ];
     }
 
@@ -71,31 +77,34 @@ class AuthService
             return null;
         }
 
-        $institute = Institute::where('user_id', $user->id)->first();
+        $institute = Institute::where('admin_user_id', $user->id)->first();
 
         if ($institute && $institute->status !== 'approved') {
             return [
                 'user' => $user,
                 'institute' => $institute,
-                'token' => $user->api_token,
+                'token' => null,
                 'pending_status' => $institute->status,
             ];
         }
 
-        $user->api_token = bin2hex(random_bytes(40));
-        $user->save();
+        $plainTextToken = $user->createToken('auth-token')->plainTextToken;
 
         return [
             'user' => $user,
             'institute' => $institute,
-            'token' => $user->api_token,
+            'token' => $plainTextToken,
         ];
     }
 
     public function logout(User $user): void
     {
-        $user->api_token = null;
-        $user->save();
+        $user->currentAccessToken()->delete();
+    }
+
+    public function createToken(User $user, string $name = 'api-token'): string
+    {
+        return $user->createToken($name)->plainTextToken;
     }
 
     private function generateLogoInitials(string $name): string

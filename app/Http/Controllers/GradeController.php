@@ -2,107 +2,114 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\GradeRequest;
+use App\Http\Resources\GradeResource;
 use App\Models\Grade;
-use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class GradeController extends Controller
 {
-    private function getUserFromToken(Request $request): ?User
+    public function index(Request $request): JsonResponse
     {
-        $token = $request->bearerToken();
-        if (!$token) {
-            return null;
-        }
+        $user = $request->user();
 
-        return User::where('api_token', $token)->first();
-    }
+        $grades = Grade::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->with('sections')->get();
 
-    public function index(Request $request)
-    {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['status' => 'error','message' => 'Unauthorized'], 401);
-        }
-
-        $instituteId = $request->query('institute_id');
-        if (!$instituteId) {
-            return response()->json(['status' => 'error','message' => 'institute_id query parameter is required'], 400);
-        }
-
-        $grades = Grade::where('institute_id', $instituteId)->where('user_id', $user->id)->get();
-        return response()->json(['status' => 'success','data' => $grades]);
-    }
-
-    public function store(Request $request)
-    {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['status' => 'error','message' => 'Unauthorized'], 401);
-        }
-
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'institute_id' => ['required', 'integer'],
+        return response()->json([
+            'success' => true,
+            'data' => GradeResource::collection($grades),
         ]);
+    }
 
-        $data['user_id'] = $user->id;
+    public function store(GradeRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $data = $request->validated();
+
+        if (!$user->isSuperAdmin()) {
+            $data['institute_id'] = $user->institute_id;
+        }
+
         $grade = Grade::create($data);
 
-        return response()->json(['status' => 'success','message' => 'Grade created', 'data' => $grade], 201);
+        return response()->json([
+            'success' => true,
+            'message' => 'Grade created successfully',
+            'data' => new GradeResource($grade),
+        ], 201);
     }
 
-    public function show(Request $request, $id)
+    public function show(Request $request, int $id): JsonResponse
     {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['status' => 'error','message' => 'Unauthorized'], 401);
-        }
+        $user = $request->user();
 
-        $grade = Grade::where('id', $id)->where('user_id', $user->id)->first();
+        $grade = Grade::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->with('sections')->find($id);
+
         if (!$grade) {
-            return response()->json(['status' => 'error','message' => 'Grade not found'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Grade not found',
+            ], 404);
         }
 
-        return response()->json(['status' => 'success','data' => $grade]);
-    }
-
-    public function update(Request $request, $id)
-    {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['status' => 'error','message' => 'Unauthorized'], 401);
-        }
-
-        $grade = Grade::where('id', $id)->where('user_id', $user->id)->first();
-        if (!$grade) {
-            return response()->json(['status' => 'error','message' => 'Grade not found'], 404);
-        }
-
-        $data = $request->validate([
-            'name' => ['nullable', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
+        return response()->json([
+            'success' => true,
+            'data' => new GradeResource($grade),
         ]);
+    }
+
+    public function update(GradeRequest $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+
+        $grade = Grade::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->find($id);
+
+        if (!$grade) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Grade not found',
+            ], 404);
+        }
+
+        $data = $request->validated();
+        unset($data['institute_id']);
 
         $grade->update($data);
-        return response()->json(['status' => 'success','message' => 'Grade updated', 'data' => $grade]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Grade updated successfully',
+            'data' => new GradeResource($grade),
+        ]);
     }
 
-    public function destroy(Request $request, $id)
+    public function destroy(Request $request, int $id): JsonResponse
     {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['status' => 'error','message' => 'Unauthorized'], 401);
-        }
+        $user = $request->user();
 
-        $grade = Grade::where('id', $id)->where('user_id', $user->id)->first();
+        $grade = Grade::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->find($id);
+
         if (!$grade) {
-            return response()->json(['status' => 'error','message' => 'Grade not found'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Grade not found',
+            ], 404);
         }
 
         $grade->delete();
-        return response()->json(['status' => 'success','message' => 'Grade deleted']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Grade deleted successfully',
+        ]);
     }
 }
-

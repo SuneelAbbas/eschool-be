@@ -5,33 +5,27 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
-class Student extends Model
+class ParentModel extends Model
 {
     use HasFactory;
+
+    protected $table = 'parents';
 
     protected $fillable = [
         'first_name',
         'last_name',
         'email',
-        'registration_date',
-        'registration_number',
-        'roll_no',
+        'cnic_number',
         'gender',
         'mobile_number',
-        'parents_name',
-        'parents_mobile_number',
-        'date_of_birth',
-        'blood_group',
+        'occupation',
         'address',
-        'upload',
         'institute_id',
         'user_id',
-        'section_id',
-    ];
-
-    protected $casts = [
-        'date_of_birth' => 'date',
+        'student_id',
     ];
 
     public function institute(): BelongsTo
@@ -44,8 +38,8 @@ class Student extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function section(): BelongsTo
+    public function student(): BelongsTo
     {
-        return $this->belongsTo(Section::class);
+        return $this->belongsTo(Student::class);
     }
 }

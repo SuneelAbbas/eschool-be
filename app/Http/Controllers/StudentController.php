@@ -2,127 +2,114 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StudentRequest;
+use App\Http\Resources\StudentResource;
 use App\Models\Student;
-use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class StudentController extends Controller
 {
-    private function getUserFromToken(Request $request): ?User
+    public function index(Request $request): JsonResponse
     {
-        $token = $request->bearerToken();
-        if (!$token) {
-            return null;
-        }
-        return User::where('api_token', $token)->first();
-    }
+        $user = $request->user();
 
-    public function index(Request $request)
-    {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
+        $students = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->with('section')->get();
 
-        return response()->json(['data' => Student::all()]);
-    }
-
-    public function store(Request $request)
-    {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
-
-        $data = $request->validate([
-            'first_name' => ['nullable', 'string', 'max:255'],
-            'last_name' => ['nullable', 'string', 'max:255'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'registration_date' => ['nullable', 'string', 'max:255'],
-            'registration_number' => ['nullable', 'string', 'max:255'],
-            'roll_no' => ['nullable', 'string', 'max:255'],
-            'grade_id' => ['nullable', 'integer'],
-            'section_id' => ['nullable', 'integer'],
-            'gender' => ['nullable', 'string', 'max:50'],
-            'mobile_number' => ['nullable', 'string', 'max:50'],
-            'parents_name' => ['nullable', 'string', 'max:255'],
-            'parents_mobile_number' => ['nullable', 'string', 'max:50'],
-            'date_of_birth' => ['nullable', 'string', 'max:255'],
-            'blood_group' => ['nullable', 'string', 'max:20'],
-            'address' => ['nullable', 'string', 'max:1000'],
-            'upload' => ['nullable', 'string', 'max:255'],
-            'institute_id' => ['required', 'integer'],
-            'user_id' => ['required', 'integer'],
+        return response()->json([
+            'success' => true,
+            'data' => StudentResource::collection($students),
         ]);
+    }
+
+    public function store(StudentRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $data = $request->validated();
+
+        if (!$user->isSuperAdmin()) {
+            $data['institute_id'] = $user->institute_id;
+        }
 
         $student = Student::create($data);
-        return response()->json(['message' => 'Student created', 'data' => $student], 201);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Student created successfully',
+            'data' => new StudentResource($student),
+        ], 201);
     }
 
-    public function show(Request $request, $id)
+    public function show(Request $request, int $id): JsonResponse
     {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
+        $user = $request->user();
 
-        $student = Student::find($id);
+        $student = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->with('section')->find($id);
+
         if (!$student) {
-            return response()->json(['message' => 'Student not found'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Student not found',
+            ], 404);
         }
 
-        return response()->json(['data' => $student]);
-    }
-
-    public function update(Request $request, $id)
-    {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
-
-        $student = Student::find($id);
-        if (!$student) {
-            return response()->json(['message' => 'Student not found'], 404);
-        }
-
-        $data = $request->validate([
-            'firstName' => ['nullable', 'string', 'max:255'],
-            'lastName' => ['nullable', 'string', 'max:255'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'registration_date' => ['nullable', 'string', 'max:255'],
-            'registration_number' => ['nullable', 'string', 'max:255'],
-            'roll_no' => ['nullable', 'string', 'max:255'],
-            'grade_id' => ['nullable', 'integer'],
-            'section_id' => ['nullable', 'integer'],
-            'gender' => ['nullable', 'string', 'max:50'],
-            'mobile_number' => ['nullable', 'string', 'max:50'],
-            'parents_name' => ['nullable', 'string', 'max:255'],
-            'parents_mobile_number' => ['nullable', 'string', 'max:50'],
-            'date_of_birth' => ['nullable', 'string', 'max:255'],
-            'blood_group' => ['nullable', 'string', 'max:20'],
-            'address' => ['nullable', 'string', 'max:1000'],
-            'upload' => ['nullable', 'string', 'max:255'],
-            'school_id' => ['nullable', 'integer'],
+        return response()->json([
+            'success' => true,
+            'data' => new StudentResource($student),
         ]);
+    }
+
+    public function update(StudentRequest $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+
+        $student = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->find($id);
+
+        if (!$student) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Student not found',
+            ], 404);
+        }
+
+        $data = $request->validated();
+        unset($data['institute_id']);
 
         $student->update($data);
-        return response()->json(['message' => 'Student updated', 'data' => $student]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Student updated successfully',
+            'data' => new StudentResource($student),
+        ]);
     }
 
-    public function destroy(Request $request, $id)
+    public function destroy(Request $request, int $id): JsonResponse
     {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
+        $user = $request->user();
 
-        $student = Student::find($id);
+        $student = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->find($id);
+
         if (!$student) {
-            return response()->json(['message' => 'Student not found'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Student not found',
+            ], 404);
         }
 
         $student->delete();
-        return response()->json(['message' => 'Student deleted']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Student deleted successfully',
+        ]);
     }
 }

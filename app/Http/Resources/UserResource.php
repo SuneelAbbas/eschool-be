@@ -13,8 +13,11 @@ class UserResource extends JsonResource
             'id' => $this->id,
             'first_name' => $this->first_name,
             'last_name' => $this->last_name,
+            'full_name' => $this->first_name . ' ' . $this->last_name,
             'email' => $this->email,
             'user_type' => $this->user_type,
+            'institute_id' => $this->institute_id,
+            'institute' => new InstituteResource($this->whenLoaded('institute')),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

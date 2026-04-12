@@ -2,118 +2,114 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\TeacherRequest;
+use App\Http\Resources\TeacherResource;
 use App\Models\Teacher;
-use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class TeacherController extends Controller
 {
-    private function getUserFromToken(Request $request): ?User
+    public function index(Request $request): JsonResponse
     {
-        $token = $request->bearerToken();
-        if (!$token) {
-            return null;
-        }
-        return User::where('api_token', $token)->first();
-    }
+        $user = $request->user();
+        
+        $teachers = Teacher::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->get();
 
-    public function index(Request $request)
-    {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
-
-        return response()->json(['data' => Teacher::all()]);
-    }
-
-    public function store(Request $request)
-    {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
-
-        $data = $request->validate([
-            'first_name' => ['required', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255'],
-            'join_date' => ['required', 'string', 'max:255'],
-            'cnic_number' => ['required', 'string', 'max:255'],
-            'subject' => ['nullable', 'string', 'max:255'],
-            'gender' => ['nullable', 'string', 'max:50'],
-            'mobile_number' => ['nullable', 'string', 'max:100'],
-            'date_of_birth' => ['nullable', 'string', 'max:255'],
-            'blood_group' => ['nullable', 'string', 'max:50'],
-            'address' => ['nullable', 'string'],
-            'academic_qualification' => ['nullable', 'string', 'max:255'],
-            'school_id' => ['required', 'integer'],
+        return response()->json([
+            'success' => true,
+            'data' => TeacherResource::collection($teachers),
         ]);
+    }
+
+    public function store(TeacherRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $data = $request->validated();
+
+        if (!$user->isSuperAdmin()) {
+            $data['institute_id'] = $user->institute_id;
+        }
 
         $teacher = Teacher::create($data);
-        return response()->json(['message' => 'Teacher created', 'data' => $teacher], 201);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Teacher created successfully',
+            'data' => new TeacherResource($teacher),
+        ], 201);
     }
 
-    public function show(Request $request, $id)
+    public function show(Request $request, int $id): JsonResponse
     {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
+        $user = $request->user();
 
-        $teacher = Teacher::find($id);
+        $teacher = Teacher::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->find($id);
+
         if (!$teacher) {
-            return response()->json(['message' => 'Teacher not found'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Teacher not found',
+            ], 404);
         }
 
-        return response()->json(['data' => $teacher]);
-    }
-
-    public function update(Request $request, $id)
-    {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
-
-        $teacher = Teacher::find($id);
-        if (!$teacher) {
-            return response()->json(['message' => 'Teacher not found'], 404);
-        }
-
-        $data = $request->validate([
-            'first_name' => ['nullable', 'string', 'max:255'],
-            'last_name' => ['nullable', 'string', 'max:255'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'join_date' => ['nullable', 'string', 'max:255'],
-            'cnic_number' => ['nullable', 'string', 'max:255'],
-            'subject' => ['nullable', 'string', 'max:255'],
-            'gender' => ['nullable', 'string', 'max:50'],
-            'mobile_number' => ['nullable', 'string', 'max:100'],
-            'date_of_birth' => ['nullable', 'string', 'max:255'],
-            'blood_group' => ['nullable', 'string', 'max:50'],
-            'address' => ['nullable', 'string'],
-            'academic_qualification' => ['nullable', 'string', 'max:255'],
-            'school_id' => ['nullable', 'integer'],
+        return response()->json([
+            'success' => true,
+            'data' => new TeacherResource($teacher),
         ]);
+    }
+
+    public function update(TeacherRequest $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+
+        $teacher = Teacher::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->find($id);
+
+        if (!$teacher) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Teacher not found',
+            ], 404);
+        }
+
+        $data = $request->validated();
+        unset($data['institute_id']);
 
         $teacher->update($data);
-        return response()->json(['message' => 'Teacher updated', 'data' => $teacher]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Teacher updated successfully',
+            'data' => new TeacherResource($teacher),
+        ]);
     }
 
-    public function destroy(Request $request, $id)
+    public function destroy(Request $request, int $id): JsonResponse
     {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
+        $user = $request->user();
 
-        $teacher = Teacher::find($id);
+        $teacher = Teacher::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->find($id);
+
         if (!$teacher) {
-            return response()->json(['message' => 'Teacher not found'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Teacher not found',
+            ], 404);
         }
 
         $teacher->delete();
-        return response()->json(['message' => 'Teacher deleted']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Teacher deleted successfully',
+        ]);
     }
 }

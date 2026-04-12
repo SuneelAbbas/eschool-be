@@ -8,6 +8,7 @@ use App\Http\Resources\InstituteResource;
 use App\Services\AuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\auth;
 
 class AuthController extends Controller
 {
@@ -24,6 +25,7 @@ class AuthController extends Controller
             
             if (!$institute) {
                 return response()->json([
+                    'success' => false,
                     'message' => 'An account with this email already exists.',
                     'data' => [
                         'user' => new UserResource($result['user']),
@@ -40,6 +42,7 @@ class AuthController extends Controller
             };
 
             return response()->json([
+                'success' => false,
                 'message' => $statusMessage,
                 'data' => [
                     'user' => new UserResource($result['user']),
@@ -50,6 +53,7 @@ class AuthController extends Controller
         }
 
         return response()->json([
+            'success' => true,
             'message' => 'Registration successful. Your institute is pending approval.',
             'data' => [
                 'user' => new UserResource($result['user']),
@@ -70,6 +74,7 @@ class AuthController extends Controller
 
         if (!$result) {
             return response()->json([
+                'success' => false,
                 'message' => 'Invalid credentials.',
             ], 401);
         }
@@ -83,6 +88,7 @@ class AuthController extends Controller
             };
 
             return response()->json([
+                'success' => false,
                 'message' => $statusMessage,
                 'data' => [
                     'user' => new UserResource($result['user']),
@@ -94,6 +100,7 @@ class AuthController extends Controller
         }
 
         return response()->json([
+            'success' => true,
             'message' => 'Login successful.',
             'data' => [
                 'user' => new UserResource($result['user']),
@@ -105,35 +112,21 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
+        $user = $request->user();
 
         return response()->json([
+            'success' => true,
             'data' => new UserResource($user),
         ]);
     }
 
     public function logout(Request $request): JsonResponse
     {
-        $user = $this->getUserFromToken($request);
-        if (!$user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
+        $request->user()->currentAccessToken()->delete();
 
-        $this->authService->logout($user);
-
-        return response()->json(['message' => 'Logged out successfully']);
-    }
-
-    private function getUserFromToken(Request $request): ?\App\Models\User
-    {
-        $token = $request->bearerToken();
-        if (!$token) {
-            return null;
-        }
-
-        return \App\Models\User::where('api_token', $token)->first();
+        return response()->json([
+            'success' => true,
+            'message' => 'Logged out successfully',
+        ]);
     }
 }
