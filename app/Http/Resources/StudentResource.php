@@ -27,6 +27,7 @@ class StudentResource extends JsonResource
             'address' => $this->address,
             'upload' => $this->upload,
             'institute_id' => $this->institute_id,
+            'section_id' => $this->section_id,
             'section' => new SectionResource($this->whenLoaded('section')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
