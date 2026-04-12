@@ -12,6 +12,7 @@ class DatabaseSeeder extends Seeder
             PlanSeeder::class,
             GradeSeeder::class,
             SectionSeeder::class,
+            StudentSeeder::class,
         ]);
     }
 }
