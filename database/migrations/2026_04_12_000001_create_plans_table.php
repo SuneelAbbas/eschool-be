@@ -8,19 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('grades', function (Blueprint $table) {
+        Schema::create('plans', function (Blueprint $table) {
             $table->id();
             $table->string('name');
             $table->string('description')->nullable();
-            $table->foreignId('institute_id')->constrained('institutes')->cascadeOnDelete();
+            $table->decimal('price', 10, 2)->default(0);
+            $table->integer('duration_days')->default(30);
+            $table->json('features')->nullable();
             $table->timestamps();
-            
-            $table->index('institute_id');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('grades');
+        Schema::dropIfExists('plans');
     }
 };

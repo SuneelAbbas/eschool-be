@@ -6,9 +6,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('institutes', function (Blueprint $table) {
@@ -22,16 +19,13 @@ return new class extends Migration
             $table->string('city')->nullable();
             $table->integer('no_of_students')->nullable();
             $table->string('description')->nullable();
-            $table->string('status')->default('active');
-            $table->bigInteger('user_id')->nullable();
-            $table->bigInteger('plan_id')->nullable();
+            $table->string('status')->default('pending');
+            $table->unsignedBigInteger('admin_user_id')->nullable();
+            $table->unsignedBigInteger('plan_id')->nullable();
             $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('institutes');

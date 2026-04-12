@@ -19,7 +19,7 @@ return new class extends Migration
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->string('user_type')->default('admin');
-            $table->foreignId('institute_id')->nullable()->constrained('institutes')->cascadeOnDelete();
+            $table->unsignedBigInteger('institute_id')->nullable();
             $table->rememberToken();
             $table->timestamps();
             

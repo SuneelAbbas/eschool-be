@@ -18,11 +18,10 @@ return new class extends Migration
             $table->string('mobile_number');
             $table->string('occupation')->nullable();
             $table->text('address')->nullable();
-            $table->foreignId('institute_id')->constrained('institutes')->cascadeOnDelete();
-            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignId('student_id')->nullable()->constrained('students')->nullOnDelete();
+            $table->unsignedBigInteger('institute_id');
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->unsignedBigInteger('student_id')->nullable();
             $table->timestamps();
-            
             $table->index('institute_id');
             $table->index('student_id');
         });

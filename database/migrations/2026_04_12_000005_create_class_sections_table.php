@@ -8,21 +8,20 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('sections', function (Blueprint $table) {
+        Schema::create('class_sections', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('grade_id')->constrained('grades')->cascadeOnDelete();
-            $table->string('name');
-            $table->string('room_no')->nullable();
-            $table->integer('capacity')->default(30);
+            $table->unsignedBigInteger('grade_id');
+            $table->unsignedBigInteger('section_id');
             $table->string('class_teacher')->nullable();
+            $table->string('room_no')->nullable();
             $table->timestamps();
-            
             $table->index('grade_id');
+            $table->index('section_id');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('sections');
+        Schema::dropIfExists('class_sections');
     }
 };

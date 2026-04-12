@@ -10,12 +10,12 @@ return new class extends Migration
     {
         Schema::create('teacher_section', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('teacher_id')->constrained('teachers')->cascadeOnDelete();
-            $table->foreignId('section_id')->constrained('sections')->cascadeOnDelete();
+            $table->unsignedBigInteger('teacher_id');
+            $table->unsignedBigInteger('section_id');
             $table->string('subject')->nullable();
             $table->timestamps();
-            
-            $table->unique(['teacher_id', 'section_id']);
+            $table->index('teacher_id');
+            $table->index('section_id');
         });
     }
 

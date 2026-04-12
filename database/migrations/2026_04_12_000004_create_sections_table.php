@@ -6,26 +6,22 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::create('grades', function (Blueprint $table) {
+        Schema::create('sections', function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('grade_id');
             $table->string('name');
-            $table->text('description')->nullable();
-            $table->bigInteger('institute_id')->unsigned();
-            $table->unsignedBigInteger('user_id')->nullable();
+            $table->string('room_no')->nullable();
+            $table->integer('capacity')->default(30);
+            $table->string('class_teacher')->nullable();
             $table->timestamps();
+            $table->index('grade_id');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::dropIfExists('grades');
+        Schema::dropIfExists('sections');
     }
 };

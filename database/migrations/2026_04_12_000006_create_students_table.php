@@ -24,14 +24,12 @@ return new class extends Migration
             $table->string('blood_group')->nullable();
             $table->text('address')->nullable();
             $table->string('upload')->nullable();
-            $table->foreignId('institute_id')->constrained('institutes')->cascadeOnDelete();
-            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignId('section_id')->nullable()->constrained('sections')->nullOnDelete();
+            $table->unsignedBigInteger('institute_id');
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->unsignedBigInteger('section_id')->nullable();
             $table->timestamps();
-            
             $table->index('institute_id');
             $table->index('section_id');
-            $table->unique(['institute_id', 'registration_number']);
         });
     }
 
