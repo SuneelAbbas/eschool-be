@@ -18,7 +18,6 @@ return Application::configure(basePath: dirname(__DIR__))
             ' institute_access' => App\Http\Middleware\CheckInstituteAccess::class,
         ]);
         $middleware->append(App\Http\Middleware\CorsMiddleware::class);
-        $middleware->statefulApi();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
