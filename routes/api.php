@@ -61,11 +61,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:admin,teacher')->group(function () {
         Route::get('/attendance', [AttendanceController::class, 'index']);
         Route::post('/attendance', [AttendanceController::class, 'store']);
+        Route::get('/attendance/report', [AttendanceController::class, 'report']);
+        Route::get('/attendance/section', [AttendanceController::class, 'sectionAttendance']);
         Route::get('/attendance/{id}', [AttendanceController::class, 'show']);
         Route::put('/attendance/{id}', [AttendanceController::class, 'update']);
         Route::delete('/attendance/{id}', [AttendanceController::class, 'destroy']);
-        Route::get('/attendance/report', [AttendanceController::class, 'report']);
-        Route::get('/attendance/section', [AttendanceController::class, 'sectionAttendance']);
     });
 
     Route::middleware('role:admin')->group(function () {
