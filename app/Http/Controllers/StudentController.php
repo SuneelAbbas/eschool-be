@@ -13,14 +13,38 @@ class StudentController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
+        $perPage = $request->input('per_page', 15);
+        $search = $request->input('search');
+        $sectionId = $request->input('section_id');
 
-        $students = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+        $query = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
             return $query->where('institute_id', $user->institute_id);
-        })->with('section')->get();
+        })->with('section');
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('registration_number', 'like', "%{$search}%")
+                  ->orWhere('roll_no', 'like', "%{$search}%");
+            });
+        }
+
+        if ($sectionId) {
+            $query->where('section_id', $sectionId);
+        }
+
+        $students = $query->orderBy('id', 'desc')->paginate($perPage);
 
         return response()->json([
             'success' => true,
-            'data' => StudentResource::collection($students),
+            'data' => StudentResource::collection($students->items()),
+            'meta' => [
+                'current_page' => $students->currentPage(),
+                'last_page' => $students->lastPage(),
+                'per_page' => $students->perPage(),
+                'total' => $students->total(),
+            ],
         ]);
     }
 
