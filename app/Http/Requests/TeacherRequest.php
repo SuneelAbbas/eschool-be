@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class TeacherRequest extends FormRequest
 {
@@ -13,11 +14,20 @@ class TeacherRequest extends FormRequest
 
     public function rules(): array
     {
+        $instituteId = $this->input('institute_id') ?? $this->user()?->institute_id;
+
         $rules = [
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255'],
-            'cnic_number' => ['required', 'string', 'max:20'],
+            'cnic_number' => [
+                'required',
+                'string',
+                'max:20',
+                Rule::unique('teachers')->where(function ($query) use ($instituteId) {
+                    return $query->where('institute_id', $instituteId);
+                }),
+            ],
             'gender' => ['nullable', 'string', 'in:male,female,other'],
             'mobile_number' => ['nullable', 'string', 'max:20'],
             'subject' => ['nullable', 'string', 'max:255'],
@@ -30,10 +40,19 @@ class TeacherRequest extends FormRequest
         ];
 
         if ($this->isMethod('PUT') || $this->isMethod('PATCH')) {
+            $teacherId = $this->route('id');
             $rules['first_name'] = ['nullable', 'string', 'max:255'];
             $rules['last_name'] = ['nullable', 'string', 'max:255'];
             $rules['email'] = ['nullable', 'email', 'max:255'];
-            $rules['cnic_number'] = ['nullable', 'string', 'max:20'];
+            $rules['cnic_number'] = [
+                'nullable',
+                'string',
+                'max:20',
+                Rule::unique('teachers')->where(function ($query) use ($instituteId, $teacherId) {
+                    return $query->where('institute_id', $instituteId)
+                                 ->where('id', '!=', $teacherId);
+                }),
+            ];
             $rules['join_date'] = ['nullable', 'date'];
         }
 
@@ -48,6 +67,7 @@ class TeacherRequest extends FormRequest
             'email.required' => 'Email is required',
             'email.email' => 'Please provide a valid email address',
             'cnic_number.required' => 'CNIC number is required',
+            'cnic_number.unique' => 'A teacher with this CNIC already exists in this institute',
             'join_date.required' => 'Join date is required',
         ];
     }
