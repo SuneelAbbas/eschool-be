@@ -33,7 +33,7 @@ class Section extends Model
     public function teachers(): BelongsToMany
     {
         return $this->belongsToMany(Teacher::class, 'teacher_section')
-            ->withPivot('subject');
+            ->withPivot('subject_id', 'is_class_teacher');
     }
 
     public function students(): HasMany

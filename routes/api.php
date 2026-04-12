@@ -7,6 +7,8 @@ use App\Http\Controllers\StudentController;
 use App\Http\Controllers\TeacherController;
 use App\Http\Controllers\ClassSectionController;
 use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\SubjectController;
+use App\Http\Controllers\TeacherSectionController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/institute-register', [AuthController::class, 'register']);
@@ -64,5 +66,21 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/attendance/{id}', [AttendanceController::class, 'destroy']);
         Route::get('/attendance/report', [AttendanceController::class, 'report']);
         Route::get('/attendance/section', [AttendanceController::class, 'sectionAttendance']);
+    });
+
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/subjects', [SubjectController::class, 'index']);
+        Route::post('/subjects', [SubjectController::class, 'store']);
+        Route::get('/subjects/{id}', [SubjectController::class, 'show']);
+        Route::put('/subjects/{id}', [SubjectController::class, 'update']);
+        Route::delete('/subjects/{id}', [SubjectController::class, 'destroy']);
+    });
+
+    Route::middleware('role:admin,teacher')->group(function () {
+        Route::get('/teacher-sections', [TeacherSectionController::class, 'index']);
+        Route::post('/teacher-sections', [TeacherSectionController::class, 'store']);
+        Route::get('/teacher-sections/{id}', [TeacherSectionController::class, 'show']);
+        Route::put('/teacher-sections/{id}', [TeacherSectionController::class, 'update']);
+        Route::delete('/teacher-sections/{id}', [TeacherSectionController::class, 'destroy']);
     });
 });
