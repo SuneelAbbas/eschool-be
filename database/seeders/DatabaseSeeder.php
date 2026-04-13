@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
             StudentSeeder::class,
             FeeTypeSeeder::class,
             DiscountSeeder::class,
+            ExamTypeSeeder::class,
         ]);
     }
 }

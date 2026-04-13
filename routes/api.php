@@ -15,6 +15,11 @@ use App\Http\Controllers\StudentFeeController;
 use App\Http\Controllers\DiscountController;
 use App\Http\Controllers\StudentDiscountController;
 use App\Http\Controllers\FeePaymentController;
+use App\Http\Controllers\ExamTypeController;
+use App\Http\Controllers\ExamController;
+use App\Http\Controllers\ExamResultController;
+use App\Http\Controllers\ReportCardController;
+use App\Http\Controllers\ExamReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/institute-register', [AuthController::class, 'register']);
@@ -126,5 +131,39 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/fee-payments/defaulters', [FeePaymentController::class, 'defaulters']);
         Route::get('/fee-payments/{id}', [FeePaymentController::class, 'show']);
         Route::delete('/fee-payments/{id}', [FeePaymentController::class, 'destroy']);
+
+        Route::get('/exam-types', [ExamTypeController::class, 'index']);
+        Route::post('/exam-types', [ExamTypeController::class, 'store']);
+        Route::get('/exam-types/{id}', [ExamTypeController::class, 'show']);
+        Route::put('/exam-types/{id}', [ExamTypeController::class, 'update']);
+        Route::delete('/exam-types/{id}', [ExamTypeController::class, 'destroy']);
+
+        Route::get('/exams', [ExamController::class, 'index']);
+        Route::post('/exams', [ExamController::class, 'store']);
+        Route::get('/exams/{id}', [ExamController::class, 'show']);
+        Route::put('/exams/{id}', [ExamController::class, 'update']);
+        Route::delete('/exams/{id}', [ExamController::class, 'destroy']);
+        Route::get('/exams/{id}/students', [ExamController::class, 'students']);
+        Route::post('/exams/{id}/subjects', [ExamController::class, 'addSubjects']);
+
+        Route::get('/exam-results', [ExamResultController::class, 'index']);
+        Route::post('/exam-results', [ExamResultController::class, 'store']);
+        Route::post('/exam-results/bulk', [ExamResultController::class, 'bulkStore']);
+        Route::get('/exam-results/{id}', [ExamResultController::class, 'show']);
+        Route::put('/exam-results/{id}', [ExamResultController::class, 'update']);
+        Route::delete('/exam-results/{id}', [ExamResultController::class, 'destroy']);
+        Route::get('/exams/{id}/results', [ExamResultController::class, 'byExam']);
+        Route::get('/students/{studentId}/exam-results', [ExamResultController::class, 'byStudent']);
+
+        Route::get('/report-cards', [ReportCardController::class, 'index']);
+        Route::get('/report-cards/{id}', [ReportCardController::class, 'show']);
+        Route::post('/report-cards/generate', [ReportCardController::class, 'generate']);
+        Route::get('/report-cards/student/{studentId}', [ReportCardController::class, 'studentHistory']);
+        Route::delete('/report-cards/{id}', [ReportCardController::class, 'destroy']);
+
+        Route::get('/exam-reports/summary', [ExamReportController::class, 'summary']);
+        Route::get('/exam-reports/grade-analysis', [ExamReportController::class, 'gradeAnalysis']);
+        Route::get('/exam-reports/subject-analysis', [ExamReportController::class, 'subjectAnalysis']);
+        Route::get('/exam-reports/student-comparison', [ExamReportController::class, 'studentComparison']);
     });
 });
