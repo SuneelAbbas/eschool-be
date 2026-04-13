@@ -54,4 +54,19 @@ class Student extends Model
     {
         return $this->hasMany(Attendance::class, 'student_id');
     }
+
+    public function studentFees(): HasMany
+    {
+        return $this->hasMany(StudentFee::class);
+    }
+
+    public function studentDiscounts(): HasMany
+    {
+        return $this->hasMany(StudentDiscount::class);
+    }
+
+    public function feePayments(): HasMany
+    {
+        return $this->hasMany(FeePayment::class);
+    }
 }

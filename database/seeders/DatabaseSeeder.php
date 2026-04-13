@@ -13,6 +13,8 @@ class DatabaseSeeder extends Seeder
             GradeSeeder::class,
             SectionSeeder::class,
             StudentSeeder::class,
+            FeeTypeSeeder::class,
+            DiscountSeeder::class,
         ]);
     }
 }

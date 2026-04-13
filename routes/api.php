@@ -9,6 +9,12 @@ use App\Http\Controllers\ClassSectionController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\TeacherSectionController;
+use App\Http\Controllers\FeeTypeController;
+use App\Http\Controllers\GradeFeeController;
+use App\Http\Controllers\StudentFeeController;
+use App\Http\Controllers\DiscountController;
+use App\Http\Controllers\StudentDiscountController;
+use App\Http\Controllers\FeePaymentController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/institute-register', [AuthController::class, 'register']);
@@ -82,5 +88,43 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/teacher-sections/{id}', [TeacherSectionController::class, 'show']);
         Route::put('/teacher-sections/{id}', [TeacherSectionController::class, 'update']);
         Route::delete('/teacher-sections/{id}', [TeacherSectionController::class, 'destroy']);
+    });
+
+    Route::middleware('role:admin,accountant')->group(function () {
+        Route::get('/fee-types', [FeeTypeController::class, 'index']);
+        Route::post('/fee-types', [FeeTypeController::class, 'store']);
+        Route::get('/fee-types/{id}', [FeeTypeController::class, 'show']);
+        Route::put('/fee-types/{id}', [FeeTypeController::class, 'update']);
+        Route::delete('/fee-types/{id}', [FeeTypeController::class, 'destroy']);
+
+        Route::get('/grade-fees', [GradeFeeController::class, 'index']);
+        Route::post('/grade-fees', [GradeFeeController::class, 'store']);
+        Route::get('/grade-fees/{id}', [GradeFeeController::class, 'show']);
+        Route::put('/grade-fees/{id}', [GradeFeeController::class, 'update']);
+        Route::delete('/grade-fees/{id}', [GradeFeeController::class, 'destroy']);
+
+        Route::get('/student-fees', [StudentFeeController::class, 'index']);
+        Route::post('/student-fees', [StudentFeeController::class, 'store']);
+        Route::get('/student-fees/{id}', [StudentFeeController::class, 'show']);
+        Route::put('/student-fees/{id}', [StudentFeeController::class, 'update']);
+        Route::delete('/student-fees/{id}', [StudentFeeController::class, 'destroy']);
+
+        Route::get('/discounts', [DiscountController::class, 'index']);
+        Route::post('/discounts', [DiscountController::class, 'store']);
+        Route::get('/discounts/{id}', [DiscountController::class, 'show']);
+        Route::put('/discounts/{id}', [DiscountController::class, 'update']);
+        Route::delete('/discounts/{id}', [DiscountController::class, 'destroy']);
+
+        Route::get('/student-discounts', [StudentDiscountController::class, 'index']);
+        Route::post('/student-discounts', [StudentDiscountController::class, 'store']);
+        Route::get('/student-discounts/{id}', [StudentDiscountController::class, 'show']);
+        Route::put('/student-discounts/{id}', [StudentDiscountController::class, 'update']);
+        Route::delete('/student-discounts/{id}', [StudentDiscountController::class, 'destroy']);
+
+        Route::get('/fee-payments', [FeePaymentController::class, 'index']);
+        Route::post('/fee-payments', [FeePaymentController::class, 'store']);
+        Route::get('/fee-payments/defaulters', [FeePaymentController::class, 'defaulters']);
+        Route::get('/fee-payments/{id}', [FeePaymentController::class, 'show']);
+        Route::delete('/fee-payments/{id}', [FeePaymentController::class, 'destroy']);
     });
 });

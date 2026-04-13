@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "eschool-api-collection-v1",
 		"name": "E-School Platform API v1",
-		"description": "E-School Platform Backend API Collection - Laravel 12\n\nRegistration Notes:\n- institute.status is auto-set to 'pending' (no need to send)\n- institute.logo is auto-generated from first 2 letters of institute_name\n- user.user_type is auto-set to 'institute_admin'\n- All fields with 'institute_' prefix use flat structure (not nested)",
+		"description": "E-School Platform Backend API Collection - Laravel 12\n\nRegistration Notes:\n- institute.status is auto-set to 'pending' (no need to send)\n- institute.logo is auto-generated from first 2 letters of institute_name\n- user.user_type is auto-set to 'institute_admin'\n- All fields with 'institute_' prefix use flat structure (not nested)\n\nFee Management:\n- Fee Types: Define fees (Tuition, Lab, Transport, etc.)\n- Grade Fees: Assign fees to grades\n- Student Fees: Custom fee overrides per student\n- Discounts: Sibling, Scholarship, Merit, Need-based discounts\n- Fee Payments: Record payments with receipt generation",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
@@ -48,6 +48,36 @@
 		},
 		{
 			"key": "teacher_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "fee_type_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "grade_fee_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "student_fee_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "discount_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "student_discount_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "fee_payment_id",
 			"value": "",
 			"type": "string"
 		}
