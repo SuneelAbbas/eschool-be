@@ -7,6 +7,7 @@ use App\Http\Resources\ExamResource;
 use App\Models\Exam;
 use App\Models\ExamSubject;
 use App\Models\Grade;
+use App\Models\GradeSubject;
 use App\Models\Section;
 use App\Models\Student;
 use Illuminate\Http\JsonResponse;
@@ -65,13 +66,27 @@ class ExamController extends Controller
         try {
             $exam = Exam::create($data);
 
+            $gradeSubjects = GradeSubject::where('grade_id', $data['grade_id'])->get();
+
             if (!empty($data['subjects'])) {
                 foreach ($data['subjects'] as $subjectId) {
+                    $gradeSubject = $gradeSubjects->firstWhere('subject_id', $subjectId);
+                    $maxMarks = $gradeSubject?->max_marks ?? $data['total_marks'] ?? 100;
                     ExamSubject::create([
                         'exam_id' => $exam->id,
                         'subject_id' => $subjectId,
-                        'max_marks' => $data['total_marks'] ?? 100,
-                        'passing_marks' => round(($data['total_marks'] ?? 100) * 0.4),
+                        'max_marks' => $maxMarks,
+                        'passing_marks' => round($maxMarks * 0.4),
+                    ]);
+                }
+            } elseif ($gradeSubjects->isNotEmpty()) {
+                foreach ($gradeSubjects as $gs) {
+                    $maxMarks = $gs->max_marks ?? $data['total_marks'] ?? 100;
+                    ExamSubject::create([
+                        'exam_id' => $exam->id,
+                        'subject_id' => $gs->subject_id,
+                        'max_marks' => $maxMarks,
+                        'passing_marks' => round($maxMarks * 0.4),
                     ]);
                 }
             }
@@ -80,7 +95,7 @@ class ExamController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => new ExamResource($exam->load(['examType', 'grade', 'section', 'examSubjects'])),
+                'data' => new ExamResource($exam->load(['examType', 'grade', 'section', 'examSubjects.subject'])),
                 'message' => 'Exam created successfully.',
             ], 201);
         } catch (\Exception $e) {
@@ -115,17 +130,22 @@ class ExamController extends Controller
         DB::beginTransaction();
 
         try {
-            $exam->update($request->validated());
+            $data = $request->validated();
+            $exam->update($data);
+
+            $gradeSubjects = GradeSubject::where('grade_id', $data['grade_id'] ?? $exam->grade_id)->get();
 
             if ($request->has('subjects')) {
                 $exam->examSubjects()->delete();
 
                 foreach ($request->subjects as $subjectId) {
+                    $gradeSubject = $gradeSubjects->firstWhere('subject_id', $subjectId);
+                    $maxMarks = $gradeSubject?->max_marks ?? ($request->total_marks ?? 100);
                     ExamSubject::create([
                         'exam_id' => $exam->id,
                         'subject_id' => $subjectId,
-                        'max_marks' => $request->total_marks ?? 100,
-                        'passing_marks' => round(($request->total_marks ?? 100) * 0.4),
+                        'max_marks' => $maxMarks,
+                        'passing_marks' => round($maxMarks * 0.4),
                     ]);
                 }
             }
@@ -134,7 +154,7 @@ class ExamController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => new ExamResource($exam->load(['examType', 'grade', 'section', 'examSubjects'])),
+                'data' => new ExamResource($exam->load(['examType', 'grade', 'section', 'examSubjects.subject'])),
                 'message' => 'Exam updated successfully.',
             ]);
         } catch (\Exception $e) {

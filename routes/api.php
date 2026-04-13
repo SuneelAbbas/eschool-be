@@ -20,6 +20,7 @@ use App\Http\Controllers\ExamController;
 use App\Http\Controllers\ExamResultController;
 use App\Http\Controllers\ReportCardController;
 use App\Http\Controllers\ExamReportController;
+use App\Http\Controllers\GradeSubjectController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/institute-register', [AuthController::class, 'register']);
@@ -137,6 +138,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/exam-types/{id}', [ExamTypeController::class, 'show']);
         Route::put('/exam-types/{id}', [ExamTypeController::class, 'update']);
         Route::delete('/exam-types/{id}', [ExamTypeController::class, 'destroy']);
+
+        Route::get('/grade-subjects', [GradeSubjectController::class, 'index']);
+        Route::post('/grade-subjects', [GradeSubjectController::class, 'store']);
+        Route::get('/grade-subjects/{id}', [GradeSubjectController::class, 'show']);
+        Route::put('/grade-subjects/{id}', [GradeSubjectController::class, 'update']);
+        Route::delete('/grade-subjects/{id}', [GradeSubjectController::class, 'destroy']);
+        Route::get('/grades/{gradeId}/subjects', [GradeSubjectController::class, 'getByGrade']);
 
         Route::get('/exams', [ExamController::class, 'index']);
         Route::post('/exams', [ExamController::class, 'store']);

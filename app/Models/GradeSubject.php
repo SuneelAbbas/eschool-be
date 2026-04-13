@@ -1,0 +1,36 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class GradeSubject extends Model
+{
+    use HasFactory;
+
+    protected $table = 'grade_subjects';
+
+    protected $fillable = [
+        'grade_id',
+        'subject_id',
+        'is_compulsory',
+        'max_marks',
+    ];
+
+    protected $casts = [
+        'is_compulsory' => 'boolean',
+        'max_marks' => 'integer',
+    ];
+
+    public function grade(): BelongsTo
+    {
+        return $this->belongsTo(Grade::class);
+    }
+
+    public function subject(): BelongsTo
+    {
+        return $this->belongsTo(Subject::class);
+    }
+}
