@@ -104,7 +104,7 @@ class GradeSubjectController extends Controller
 
     public function getByGrade(Request $request, $gradeId): JsonResponse
     {
-        $gradeSubjects = GradeSubject::with(['subject'])
+        $gradeSubjects = GradeSubject::with(['grade', 'subject'])
             ->where('grade_id', $gradeId)
             ->orderBy('subject_id')
             ->get();
