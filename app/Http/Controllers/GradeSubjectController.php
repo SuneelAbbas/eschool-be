@@ -14,7 +14,9 @@ class GradeSubjectController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = GradeSubject::with(['grade', 'subject'])
-            ->where('institute_id', $request->user()->institute_id);
+            ->whereHas('grade', function ($q) use ($request) {
+                $q->where('institute_id', $request->user()->institute_id);
+            });
 
         if ($request->has('grade_id')) {
             $query->where('grade_id', $request->grade_id);
