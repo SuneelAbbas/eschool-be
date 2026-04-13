@@ -43,6 +43,9 @@ class GradeSubjectController extends Controller
 
         $existing = GradeSubject::where('grade_id', $data['grade_id'])
             ->where('subject_id', $data['subject_id'])
+            ->whereHas('grade', function ($q) use ($request) {
+                $q->where('institute_id', $request->user()->institute_id);
+            })
             ->first();
 
         if ($existing) {
