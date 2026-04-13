@@ -11,35 +11,30 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class GradeSubjectController extends Controller
 {
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(Request $request): JsonResponse
     {
         $instituteId = $request->user()->institute_id;
 
-        $query = GradeSubject::with(['grade', 'subject'])
-            ->whereHas('grade', function ($q) use ($instituteId) {
-                $q->where('institute_id', $instituteId);
-            })
-            ->whereHas('subject', function ($q) use ($instituteId) {
-                $q->where('institute_id', $instituteId);
-            });
+        $grades = \App\Models\Grade::where('institute_id', $instituteId)->get();
 
-        if ($request->has('grade_id')) {
-            $query->where('grade_id', $request->grade_id);
-        }
+        $summary = $grades->map(function ($grade) use ($instituteId) {
+            $count = GradeSubject::where('grade_id', $grade->id)
+                ->whereHas('subject', function ($q) use ($instituteId) {
+                    $q->where('institute_id', $instituteId);
+                })
+                ->count();
 
-        if ($request->has('subject_id')) {
-            $query->where('subject_id', $request->subject_id);
-        }
+            return [
+                'grade_id' => $grade->id,
+                'grade_name' => $grade->name,
+                'subject_count' => $count,
+            ];
+        });
 
-        if ($request->has('is_compulsory')) {
-            $query->where('is_compulsory', $request->boolean('is_compulsory'));
-        }
-
-        $gradeSubjects = $query->orderBy('grade_id')
-            ->orderBy('subject_id')
-            ->paginate($request->get('per_page', 50));
-
-        return GradeSubjectResource::collection($gradeSubjects);
+        return response()->json([
+            'success' => true,
+            'data' => $summary,
+        ]);
     }
 
     public function store(GradeSubjectRequest $request): JsonResponse
