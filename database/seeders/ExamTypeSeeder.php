@@ -3,14 +3,18 @@
 namespace Database\Seeders;
 
 use App\Models\ExamType;
+use App\Models\Institute;
 use Illuminate\Database\Seeder;
 
 class ExamTypeSeeder extends Seeder
 {
     public function run(): void
     {
+        $instituteId = Institute::first()?->id ?? 1;
+
         $examTypes = [
             [
+                'institute_id' => $instituteId,
                 'name' => 'Unit Test 1',
                 'code' => 'UT1',
                 'type' => 'unit_test',
@@ -19,6 +23,7 @@ class ExamTypeSeeder extends Seeder
                 'is_active' => true,
             ],
             [
+                'institute_id' => $instituteId,
                 'name' => 'Unit Test 2',
                 'code' => 'UT2',
                 'type' => 'unit_test',
@@ -27,6 +32,7 @@ class ExamTypeSeeder extends Seeder
                 'is_active' => true,
             ],
             [
+                'institute_id' => $instituteId,
                 'name' => 'Unit Test 3',
                 'code' => 'UT3',
                 'type' => 'unit_test',
@@ -35,6 +41,7 @@ class ExamTypeSeeder extends Seeder
                 'is_active' => true,
             ],
             [
+                'institute_id' => $instituteId,
                 'name' => 'Mid Term',
                 'code' => 'MT',
                 'type' => 'terminal',
@@ -43,6 +50,7 @@ class ExamTypeSeeder extends Seeder
                 'is_active' => true,
             ],
             [
+                'institute_id' => $instituteId,
                 'name' => 'Terminal Exam',
                 'code' => 'TERM',
                 'type' => 'terminal',
@@ -51,6 +59,7 @@ class ExamTypeSeeder extends Seeder
                 'is_active' => true,
             ],
             [
+                'institute_id' => $instituteId,
                 'name' => 'Annual Exam',
                 'code' => 'ANNUAL',
                 'type' => 'annual',
@@ -59,6 +68,7 @@ class ExamTypeSeeder extends Seeder
                 'is_active' => true,
             ],
             [
+                'institute_id' => $instituteId,
                 'name' => 'Matric Preparation',
                 'code' => 'MAT-PREP',
                 'type' => 'board_prep',
@@ -67,6 +77,7 @@ class ExamTypeSeeder extends Seeder
                 'is_active' => true,
             ],
             [
+                'institute_id' => $instituteId,
                 'name' => 'Intermediate Preparation',
                 'code' => 'INT-PREP',
                 'type' => 'board_prep',
@@ -78,7 +89,7 @@ class ExamTypeSeeder extends Seeder
 
         foreach ($examTypes as $examType) {
             ExamType::firstOrCreate(
-                ['code' => $examType['code']],
+                ['code' => $examType['code'], 'institute_id' => $instituteId],
                 $examType
             );
         }
