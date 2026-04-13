@@ -12,7 +12,7 @@ class GradeSeeder extends Seeder
         $instituteId = DB::table('institutes')->value('id');
 
         if (!$instituteId) {
-            $this->command->warn('No institute found. Please create an institute first.');
+            $this->command->warn('No institute found. Please run InstituteSeeder first.');
             return;
         }
 

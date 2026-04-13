@@ -11,42 +11,45 @@ class SubjectSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->seedAllSubjects();
-
         $institutesWithGrades = \App\Models\Institute::whereHas('grades')->get();
+
+        if ($institutesWithGrades->isEmpty()) {
+            $this->command->warn('No institutes with grades found. Please run GradeSeeder first.');
+            return;
+        }
 
         foreach ($institutesWithGrades as $institute) {
             $this->seedSubjectsForInstitute($institute);
         }
 
-        if ($institutesWithGrades->isEmpty()) {
-            $this->command->warn('No institutes with grades found. Subjects created but not linked to grades.');
-        } else {
-            $this->command->info('Subjects seeded successfully with grade-specific curriculum!');
-        }
+        $this->command->info('Subjects seeded successfully with grade-specific curriculum!');
     }
 
-    protected function seedAllSubjects(): void
+    protected function seedSubjectsForInstitute(\App\Models\Institute $institute): void
     {
-        $subjects = $this->getSubjectDefinitions();
+        $this->command->info("Processing institute: {$institute->name}");
 
-        foreach ($subjects as $subjectData) {
-            Subject::updateOrCreate(
-                ['code' => $subjectData['code']],
+        $grades = Grade::where('institute_id', $institute->id)->get();
+        $this->command->info("Found {$grades->count()} grades");
+
+        $subjectDefinitions = $this->getSubjectDefinitions();
+        $subjectMap = [];
+
+        foreach ($subjectDefinitions as $subjectData) {
+            $subject = Subject::updateOrCreate(
+                [
+                    'institute_id' => $institute->id,
+                    'code' => $subjectData['code'],
+                ],
                 [
                     'name' => $subjectData['name'],
                     'description' => $subjectData['description'],
                 ]
             );
+            $subjectMap[$subjectData['code']] = $subject->id;
         }
 
-        $this->command->info('Created/Updated ' . count($subjects) . ' subjects.');
-    }
-
-    protected function seedSubjectsForInstitute(\App\Models\Institute $institute): void
-    {
-        $grades = Grade::where('institute_id', $institute->id)->get();
-        $subjects = Subject::all()->keyBy('code');
+        $this->command->info('Created/Updated ' . count($subjectDefinitions) . ' subjects.');
 
         $curriculum = $this->getCurriculumByGrade();
 
@@ -61,20 +64,20 @@ class SubjectSeeder extends Seeder
             }
 
             foreach ($gradeCurriculum as $subjectCode => $config) {
-                $subject = $subjects->get($subjectCode);
+                $subjectId = $subjectMap[$subjectCode] ?? null;
 
-                if (!$subject) {
+                if (!$subjectId) {
                     continue;
                 }
 
                 $exists = GradeSubject::where('grade_id', $grade->id)
-                    ->where('subject_id', $subject->id)
+                    ->where('subject_id', $subjectId)
                     ->exists();
 
                 if (!$exists) {
                     GradeSubject::create([
                         'grade_id' => $grade->id,
-                        'subject_id' => $subject->id,
+                        'subject_id' => $subjectId,
                         'is_compulsory' => $config['compulsory'],
                         'max_marks' => $config['max_marks'] ?? null,
                     ]);
