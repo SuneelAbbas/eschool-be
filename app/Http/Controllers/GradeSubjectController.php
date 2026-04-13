@@ -13,9 +13,14 @@ class GradeSubjectController extends Controller
 {
     public function index(Request $request): AnonymousResourceCollection
     {
+        $instituteId = $request->user()->institute_id;
+
         $query = GradeSubject::with(['grade', 'subject'])
-            ->whereHas('grade', function ($q) use ($request) {
-                $q->where('institute_id', $request->user()->institute_id);
+            ->whereHas('grade', function ($q) use ($instituteId) {
+                $q->where('institute_id', $instituteId);
+            })
+            ->whereHas('subject', function ($q) use ($instituteId) {
+                $q->where('institute_id', $instituteId);
             });
 
         if ($request->has('grade_id')) {
@@ -40,12 +45,27 @@ class GradeSubjectController extends Controller
     public function store(GradeSubjectRequest $request): JsonResponse
     {
         $data = $request->validated();
+        $instituteId = $request->user()->institute_id;
+
+        $grade = \App\Models\Grade::find($data['grade_id']);
+        $subject = \App\Models\Subject::find($data['subject_id']);
+
+        if (!$grade || $grade->institute_id !== $instituteId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid grade for your institute.',
+            ], 422);
+        }
+
+        if (!$subject || $subject->institute_id !== $instituteId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid subject for your institute.',
+            ], 422);
+        }
 
         $existing = GradeSubject::where('grade_id', $data['grade_id'])
             ->where('subject_id', $data['subject_id'])
-            ->whereHas('grade', function ($q) use ($request) {
-                $q->where('institute_id', $request->user()->institute_id);
-            })
             ->first();
 
         if ($existing) {
