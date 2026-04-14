@@ -104,7 +104,7 @@ class FeePaymentController extends Controller
         $academicYear = $request->input('academic_year', Carbon::now()->year);
         $gradeId = $request->input('grade_id');
 
-        $query = Student::with(['section.grade', 'fees.feeType', 'discounts.discount'])
+        $query = Student::with(['section.grade', 'studentFees.feeType', 'studentDiscounts.discount'])
             ->where('institute_id', $user->institute_id)
             ->whereNotNull('section_id');
 
@@ -123,7 +123,7 @@ class FeePaymentController extends Controller
             $totalPaid = 0;
             $dueFees = [];
 
-            foreach ($student->fees as $studentFee) {
+            foreach ($student->studentFees as $studentFee) {
                 if (!$studentFee->is_active) continue;
                 
                 $feeAmount = $studentFee->amount;
