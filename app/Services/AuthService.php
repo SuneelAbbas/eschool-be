@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Models\Institute;
+use App\Models\Role;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\NewAccessToken;
@@ -35,6 +36,7 @@ class AuthService
                 'email' => $data['email'],
                 'password' => Hash::make($data['password']),
                 'user_type' => 'admin',
+                'status' => 'active',
             ]);
 
             $logoInitials = $this->generateLogoInitials($data['institute_name']);
@@ -54,8 +56,13 @@ class AuthService
                 'plan_id' => $data['plan_id'] ?? null,
             ]);
 
-                $user->institute_id = $institute->id;
+            $user->institute_id = $institute->id;
             $user->save();
+
+            $adminRole = Role::where('slug', 'admin')->first();
+            if ($adminRole) {
+                $user->assignRole($adminRole);
+            }
         });
 
         $plainTextToken = $user->createToken('auth-token')->plainTextToken;
