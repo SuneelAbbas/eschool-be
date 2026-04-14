@@ -31,6 +31,9 @@ class SectionController extends Controller
         $user = $request->user();
         $data = $request->validated();
 
+        $grade = \App\Models\Grade::find($data['grade_id']);
+        $data['institute_id'] = $grade->institute_id;
+
         $section = Section::create($data);
 
         return response()->json([

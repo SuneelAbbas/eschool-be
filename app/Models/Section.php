@@ -14,6 +14,7 @@ class Section extends Model
 
     protected $fillable = [
         'grade_id',
+        'institute_id',
         'name',
         'room_no',
         'capacity',
