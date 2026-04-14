@@ -21,6 +21,9 @@ use App\Http\Controllers\ExamResultController;
 use App\Http\Controllers\ReportCardController;
 use App\Http\Controllers\ExamReportController;
 use App\Http\Controllers\GradeSubjectController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\PermissionController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/institute-register', [AuthController::class, 'register']);
@@ -173,5 +176,51 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/exam-reports/grade-analysis', [ExamReportController::class, 'gradeAnalysis']);
         Route::get('/exam-reports/subject-analysis', [ExamReportController::class, 'subjectAnalysis']);
         Route::get('/exam-reports/student-comparison', [ExamReportController::class, 'studentComparison']);
+    });
+
+    // User Management Routes
+    Route::middleware('permission:users.view')->group(function () {
+        Route::get('/users', [UserController::class, 'index']);
+        Route::get('/users/{user}', [UserController::class, 'show']);
+    });
+
+    Route::middleware('permission:users.create')->group(function () {
+        Route::post('/users', [UserController::class, 'store']);
+    });
+
+    Route::middleware('permission:users.update')->group(function () {
+        Route::put('/users/{user}', [UserController::class, 'update']);
+        Route::patch('/users/{user}', [UserController::class, 'update']);
+    });
+
+    Route::middleware('permission:users.delete')->group(function () {
+        Route::delete('/users/{user}', [UserController::class, 'destroy']);
+    });
+
+    Route::middleware('permission:users.assign_role')->group(function () {
+        Route::post('/users/{user}/roles', [UserController::class, 'assignRoles']);
+    });
+
+    Route::middleware('permission:users.toggle_status')->group(function () {
+        Route::patch('/users/{user}/toggle-status', [UserController::class, 'toggleStatus']);
+    });
+
+    Route::middleware('permission:users.update')->group(function () {
+        Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword']);
+    });
+
+    Route::get('/me/permissions', [UserController::class, 'myPermissions']);
+
+    // Role & Permission Routes (Admin only)
+    Route::middleware('role:admin,super_admin')->group(function () {
+        Route::get('/roles', [RoleController::class, 'index']);
+        Route::post('/roles', [RoleController::class, 'store']);
+        Route::get('/roles/{role}', [RoleController::class, 'show']);
+        Route::put('/roles/{role}', [RoleController::class, 'update']);
+        Route::patch('/roles/{role}', [RoleController::class, 'update']);
+        Route::delete('/roles/{role}', [RoleController::class, 'destroy']);
+
+        Route::get('/permissions', [PermissionController::class, 'index']);
+        Route::get('/permissions/groups', [PermissionController::class, 'groups']);
     });
 });
