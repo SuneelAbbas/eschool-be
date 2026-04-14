@@ -111,6 +111,13 @@ class UserController extends Controller
     {
         $currentUser = $request->user();
 
+        if ($currentUser->id === $id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot modify your own account. Contact another admin for changes.',
+            ], 422);
+        }
+
         $query = User::where('id', $id);
 
         if (!$currentUser->isSuperAdmin()) {
@@ -191,6 +198,13 @@ class UserController extends Controller
     public function assignRoles(AssignRoleRequest $request, int $id): JsonResponse
     {
         $currentUser = $request->user();
+
+        if ($currentUser->id === $id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot modify your own roles. Contact another admin.',
+            ], 422);
+        }
 
         $query = User::where('id', $id);
 

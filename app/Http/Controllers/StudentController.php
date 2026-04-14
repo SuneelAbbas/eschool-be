@@ -10,6 +10,24 @@ use Illuminate\Http\Request;
 
 class StudentController extends Controller
 {
+    public function generateRegNumber(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $gradeId = $request->input('grade_id');
+        
+        $regNumber = Student::generateRegistrationNumber(
+            $user->institute_id,
+            $gradeId ? (int)$gradeId : null
+        );
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'registration_number' => $regNumber,
+            ],
+        ]);
+    }
+
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();

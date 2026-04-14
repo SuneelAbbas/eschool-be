@@ -84,7 +84,14 @@ class AuthService
             return null;
         }
 
-        $institute = Institute::where('admin_user_id', $user->id)->first();
+        $institute = null;
+        if ($user->institute_id) {
+            $institute = Institute::find($user->institute_id);
+        }
+
+        if (!$institute) {
+            $institute = Institute::where('admin_user_id', $user->id)->first();
+        }
 
         if ($institute && $institute->status !== 'approved') {
             return [
