@@ -12,7 +12,8 @@ class RoleController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Role::withCount('users')->with('permissions');
+        $query = Role::withCount('users')->with('permissions')
+            ->whereNotIn('slug', Role::getSystemSlugs());
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -77,10 +78,10 @@ class RoleController extends Controller
             ], 404);
         }
 
-        if (in_array($role->slug, ['super_admin', 'admin', 'teacher', 'student', 'parent', 'accountant', 'librarian'])) {
+        if ($role->isProtected()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Cannot modify default system role',
+                'message' => 'Cannot modify protected system role',
             ], 422);
         }
 
@@ -112,10 +113,10 @@ class RoleController extends Controller
             ], 404);
         }
 
-        if (in_array($role->slug, ['super_admin', 'admin', 'teacher', 'student', 'parent', 'accountant', 'librarian'])) {
+        if ($role->isProtected()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Cannot delete default system role',
+                'message' => 'Cannot delete protected system role',
             ], 422);
         }
 

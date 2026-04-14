@@ -19,8 +19,13 @@ class RoleSeeder extends Seeder
                     'name' => $roleData['name'],
                     'description' => $roleData['description'] ?? null,
                     'sort_order' => $roleData['sort_order'] ?? 0,
+                    'is_system' => $roleData['is_system'] ?? false,
                 ]
             );
+
+            if ($role->wasRecentlyCreated === false) {
+                $role->update(['is_system' => $roleData['is_system'] ?? false]);
+            }
 
             if (isset($roleData['permissions'])) {
                 $permissions = Permission::whereIn('slug', $roleData['permissions'])->pluck('id');
@@ -37,6 +42,7 @@ class RoleSeeder extends Seeder
                 'name' => 'Super Admin',
                 'description' => 'Full system access across all institutes',
                 'sort_order' => 1,
+                'is_system' => true,
                 'permissions' => ['*'],
             ],
             [

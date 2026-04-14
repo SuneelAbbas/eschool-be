@@ -15,6 +15,8 @@ class RoleResource extends JsonResource
             'slug' => $this->slug,
             'description' => $this->description,
             'sort_order' => $this->sort_order,
+            'is_system' => $this->is_system,
+            'is_protected' => $this->isProtected(),
             'permissions' => PermissionResource::collection($this->whenLoaded('permissions')),
             'users_count' => $this->when($this->users_count !== null, $this->users_count),
             'created_at' => $this->created_at,
