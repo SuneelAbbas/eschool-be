@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StudentRequest;
 use App\Http\Resources\StudentResource;
 use App\Models\Student;
+use App\Models\GradeFee;
+use App\Models\StudentFee;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -153,5 +155,135 @@ class StudentController extends Controller
             'success' => true,
             'message' => 'Student deleted successfully',
         ]);
+    }
+
+    public function enroll(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+
+        $student = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->find($id);
+
+        if (!$student) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Student not found',
+            ], 404);
+        }
+
+        $student->update(['status' => 'active']);
+
+        $this->applyOneTimeFees($student);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Student enrolled successfully. One-time fees have been applied.',
+            'data' => new StudentResource($student->fresh()),
+        ]);
+    }
+
+    public function assignFeesToAllStudents(Request $request): JsonResponse
+    {
+        $request->validate([
+            'grade_id' => 'required|integer|exists:grades,id',
+            'fee_type_id' => 'required|integer|exists:fee_types,id',
+            'academic_year' => 'nullable|string',
+        ]);
+
+        $user = $request->user();
+        $gradeId = (int) $request->grade_id;
+        $feeTypeId = (int) $request->fee_type_id;
+        $academicYear = $request->academic_year ?? now()->year;
+
+        $gradeFee = GradeFee::where('grade_id', $gradeId)
+            ->where('fee_type_id', $feeTypeId)
+            ->first();
+
+        if (!$gradeFee) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Grade fee not found for the specified fee type',
+            ], 404);
+        }
+
+        $students = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })
+            ->where('status', 'active')
+            ->whereHas('section', function ($q) use ($gradeId) {
+                $q->where('grade_id', $gradeId);
+            })
+            ->get();
+
+        $created = 0;
+        $skipped = 0;
+
+        foreach ($students as $student) {
+            $existing = StudentFee::where('student_id', $student->id)
+                ->where('fee_type_id', $feeTypeId)
+                ->where('is_active', true)
+                ->first();
+
+            if ($existing) {
+                $skipped++;
+                continue;
+            }
+
+            StudentFee::create([
+                'student_id' => $student->id,
+                'fee_type_id' => $feeTypeId,
+                'amount' => $gradeFee->amount,
+                'is_custom' => false,
+                'is_active' => true,
+                'effective_from' => $gradeFee->effective_from,
+                'effective_to' => $gradeFee->effective_to,
+            ]);
+
+            $created++;
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Fees assigned to {$created} students. {$skipped} already had this fee.",
+            'data' => [
+                'created' => $created,
+                'skipped' => $skipped,
+                'total' => $students->count(),
+            ],
+        ]);
+    }
+
+    private function applyOneTimeFees(Student $student): void
+    {
+        if (!$student->section_id) {
+            return;
+        }
+
+        $gradeId = $student->section->grade_id;
+
+        $oneTimeGradeFees = GradeFee::where('grade_id', $gradeId)
+            ->whereHas('feeType', function ($query) {
+                $query->where('type', 'one_time');
+            })
+            ->get();
+
+        foreach ($oneTimeGradeFees as $gradeFee) {
+            $existing = StudentFee::where('student_id', $student->id)
+                ->where('fee_type_id', $gradeFee->fee_type_id)
+                ->first();
+
+            if (!$existing) {
+                StudentFee::create([
+                    'student_id' => $student->id,
+                    'fee_type_id' => $gradeFee->fee_type_id,
+                    'amount' => $gradeFee->amount,
+                    'is_custom' => false,
+                    'is_active' => true,
+                    'effective_from' => $gradeFee->effective_from,
+                    'effective_to' => $gradeFee->effective_to,
+                ]);
+            }
+        }
     }
 }

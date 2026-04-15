@@ -15,6 +15,7 @@ use App\Http\Controllers\StudentFeeController;
 use App\Http\Controllers\DiscountController;
 use App\Http\Controllers\StudentDiscountController;
 use App\Http\Controllers\FeePaymentController;
+use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\ExamTypeController;
 use App\Http\Controllers\ExamController;
 use App\Http\Controllers\ExamResultController;
@@ -72,6 +73,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/students/{id}', [StudentController::class, 'show']);
         Route::put('/students/{id}', [StudentController::class, 'update']);
         Route::delete('/students/{id}', [StudentController::class, 'destroy']);
+        Route::post('/students/{id}/enroll', [StudentController::class, 'enroll']);
+        Route::post('/students/assign-fees', [StudentController::class, 'assignFeesToAllStudents']);
     });
 
     Route::middleware('role:admin,teacher')->group(function () {
@@ -135,7 +138,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/fee-payments', [FeePaymentController::class, 'store']);
         Route::get('/fee-payments/defaulters', [FeePaymentController::class, 'defaulters']);
         Route::get('/fee-payments/{id}', [FeePaymentController::class, 'show']);
+        Route::get('/fee-payments/{id}/receipt', [FeePaymentController::class, 'receipt']);
         Route::delete('/fee-payments/{id}', [FeePaymentController::class, 'destroy']);
+
+        Route::get('/bank-accounts', [BankAccountController::class, 'index']);
+        Route::post('/bank-accounts', [BankAccountController::class, 'store']);
+        Route::get('/bank-accounts/{id}', [BankAccountController::class, 'show']);
+        Route::put('/bank-accounts/{id}', [BankAccountController::class, 'update']);
+        Route::patch('/bank-accounts/{id}', [BankAccountController::class, 'update']);
+        Route::delete('/bank-accounts/{id}', [BankAccountController::class, 'destroy']);
+        Route::post('/bank-accounts/{id}/set-default', [BankAccountController::class, 'setDefault']);
 
         Route::get('/exam-types', [ExamTypeController::class, 'index']);
         Route::post('/exam-types', [ExamTypeController::class, 'store']);

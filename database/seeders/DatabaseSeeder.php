@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             StudentSeeder::class,
             SubjectSeeder::class,
             FeeTypeSeeder::class,
+            BankAccountSeeder::class,
             DiscountSeeder::class,
             ExamTypeSeeder::class,
         ]);

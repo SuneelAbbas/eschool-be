@@ -16,6 +16,9 @@ class FeePaymentResource extends JsonResource
             'payment_date' => $this->payment_date,
             'payment_method' => $this->payment_method,
             'receipt_number' => $this->receipt_number,
+            'barcode_value' => $this->barcode_value,
+            'bank_reference' => $this->bank_reference,
+            'bank_account_id' => $this->bank_account_id,
             'transaction_id' => $this->transaction_id,
             'received_by' => $this->received_by,
             'notes' => $this->notes,
@@ -25,6 +28,7 @@ class FeePaymentResource extends JsonResource
             'updated_at' => $this->updated_at,
             'student' => new StudentResource($this->whenLoaded('student')),
             'receiver' => new UserResource($this->whenLoaded('receiver')),
+            'bank_account' => new BankAccountResource($this->whenLoaded('bankAccount')),
             'payment_records' => PaymentRecordResource::collection($this->whenLoaded('paymentRecords')),
         ];
     }

@@ -23,6 +23,7 @@ class FeePaymentRequest extends FormRequest
                 Rule::in(['cash', 'bank_transfer', 'jazzcash', 'easypaisa', 'cheque'])
             ],
             'receipt_number' => ['nullable', 'string', 'max:50'],
+            'bank_account_id' => ['nullable', 'integer', 'exists:bank_accounts,id'],
             'transaction_id' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string'],
             'month' => ['nullable', 'string', 'regex:/^\d{4}-\d{2}$/'],

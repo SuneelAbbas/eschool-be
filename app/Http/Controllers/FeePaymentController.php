@@ -46,13 +46,12 @@ class FeePaymentController extends Controller
         $data = $request->validated();
 
         $data['received_by'] = $user->id;
-
-        if (empty($data['receipt_number'])) {
-            $data['receipt_number'] = 'RCP-' . strtoupper(Str::random(8));
-        }
+        $data['receipt_number'] = FeePayment::generateReceiptNumber();
+        $data['barcode_value'] = $data['receipt_number'];
+        $data['bank_reference'] = FeePayment::generateBankReference();
 
         $payment = FeePayment::create($data);
-        $payment->load(['student', 'receiver']);
+        $payment->load(['student', 'receiver', 'bankAccount']);
 
         return response()->json([
             'success' => true,
@@ -63,7 +62,8 @@ class FeePaymentController extends Controller
 
     public function show(Request $request, int $id): JsonResponse
     {
-        $payment = FeePayment::with(['student', 'receiver', 'paymentRecords.studentFee.feeType'])->find($id);
+        $user = $request->user();
+        $payment = FeePayment::with(['student', 'receiver', 'paymentRecords.studentFee.feeType', 'bankAccount'])->find($id);
 
         if (!$payment) {
             return response()->json([
@@ -72,10 +72,131 @@ class FeePaymentController extends Controller
             ], 404);
         }
 
+        if (!$user->isSuperAdmin() && $payment->student->institute_id !== $user->institute_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
         return response()->json([
             'success' => true,
             'data' => new FeePaymentResource($payment),
         ]);
+    }
+
+    public function receipt(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+
+        $payment = FeePayment::with([
+            'student',
+            'student.section.grade',
+            'receiver',
+            'paymentRecords.studentFee.feeType',
+            'bankAccount',
+        ])->find($id);
+
+        if (!$payment) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Payment not found',
+            ], 404);
+        }
+
+        if (!$user->isSuperAdmin() && $payment->student->institute_id !== $user->institute_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
+        $institute = $payment->student->institute;
+
+        $receipt = [
+            'receipt_number' => $payment->receipt_number,
+            'barcode_value' => $payment->barcode_value,
+            'payment_date' => $payment->payment_date->format('d-M-Y'),
+            'payment_date_raw' => $payment->payment_date->toDateString(),
+            'bank_reference' => $payment->bank_reference,
+            'payment_method' => ucfirst(str_replace('_', ' ', $payment->payment_method)),
+            'amount' => (float) $payment->amount,
+            'amount_in_words' => $this->numberToWords($payment->amount),
+            'student' => [
+                'id' => $payment->student->id,
+                'name' => $payment->student->first_name . ' ' . $payment->student->last_name,
+                'registration_number' => $payment->student->registration_number,
+                'grade' => $payment->student->section->grade->name ?? 'N/A',
+                'section' => $payment->student->section->name ?? 'N/A',
+                'father_name' => $payment->student->parents_name ?? 'N/A',
+            ],
+            'institute' => [
+                'name' => $institute->name,
+                'logo' => $institute->logo,
+                'address' => $institute->address,
+                'phone' => $institute->contact_phone,
+                'email' => $institute->contact_email,
+            ],
+            'bank_account' => $payment->bankAccount ? [
+                'bank_name' => $payment->bankAccount->bank_name,
+                'account_title' => $payment->bankAccount->account_title,
+                'account_number' => $payment->bankAccount->account_number,
+                'branch_code' => $payment->bankAccount->branch_code,
+                'branch_address' => $payment->bankAccount->branch_address,
+            ] : null,
+            'fees' => $payment->paymentRecords->map(function ($record) {
+                return [
+                    'fee_type' => $record->studentFee->feeType->name ?? 'Fee',
+                    'amount' => (float) $record->amount,
+                ];
+            }),
+            'received_by' => $payment->receiver ? $payment->receiver->name : 'System',
+            'month' => $payment->month,
+            'academic_year' => $payment->academic_year,
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => $receipt,
+        ]);
+    }
+
+    private function numberToWords(float $number): string
+    {
+        $ones = [
+            0 => '', 1 => 'One', 2 => 'Two', 3 => 'Three', 4 => 'Four',
+            5 => 'Five', 6 => 'Six', 7 => 'Seven', 8 => 'Eight', 9 => 'Nine',
+            10 => 'Ten', 11 => 'Eleven', 12 => 'Twelve', 13 => 'Thirteen',
+            14 => 'Fourteen', 15 => 'Fifteen', 16 => 'Sixteen', 17 => 'Seventeen',
+            18 => 'Eighteen', 19 => 'Nineteen'
+        ];
+        $tens = [
+            2 => 'Twenty', 3 => 'Thirty', 4 => 'Forty', 5 => 'Fifty',
+            6 => 'Sixty', 7 => 'Seventy', 8 => 'Eighty', 9 => 'Ninety'
+        ];
+
+        $num = (int) $number;
+        $dec = (int) (($number - $num) * 100);
+
+        if ($num == 0) return 'Zero';
+
+        if ($num < 20) {
+            $result = $ones[$num];
+        } elseif ($num < 100) {
+            $result = $tens[floor($num / 10)];
+            if ($num % 10) $result .= ' ' . $ones[$num % 10];
+        } else {
+            $result = $ones[floor($num / 100)] . ' Hundred';
+            if ($num % 100) {
+                $result .= ' ' . $this->numberToWords($num % 100);
+            }
+        }
+
+        if ($dec > 0) {
+            $result .= ' and ' . $dec . '/100';
+        }
+
+        return $result . ' Rupees Only';
     }
 
     public function destroy(Request $request, int $id): JsonResponse

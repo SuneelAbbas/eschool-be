@@ -67,6 +67,16 @@ class Institute extends Model
         return $this->hasMany(Section::class);
     }
 
+    public function bankAccounts(): HasMany
+    {
+        return $this->hasMany(BankAccount::class);
+    }
+
+    public function defaultBankAccount(): HasOne
+    {
+        return $this->hasOne(BankAccount::class)->where('is_default', true);
+    }
+
     public function isPending(): bool
     {
         return $this->status === 'pending';

@@ -17,6 +17,9 @@ class FeePayment extends Model
         'payment_date',
         'payment_method',
         'receipt_number',
+        'barcode_value',
+        'bank_reference',
+        'bank_account_id',
         'transaction_id',
         'received_by',
         'notes',
@@ -42,5 +45,33 @@ class FeePayment extends Model
     public function paymentRecords(): HasMany
     {
         return $this->hasMany(PaymentRecord::class);
+    }
+
+    public function bankAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccount::class);
+    }
+
+    public static function generateReceiptNumber(): string
+    {
+        $yearMonth = now()->format('Ym');
+        $prefix = "REC-{$yearMonth}";
+
+        $lastPayment = static::where('receipt_number', 'like', "{$prefix}%")
+            ->orderBy('receipt_number', 'desc')
+            ->first();
+
+        $sequence = 1;
+        if ($lastPayment) {
+            $lastSequence = (int) substr($lastPayment->receipt_number, -4);
+            $sequence = $lastSequence + 1;
+        }
+
+        return $prefix . str_pad($sequence, 4, '0', STR_PAD_LEFT);
+    }
+
+    public static function generateBankReference(): string
+    {
+        return 'BT-' . now()->format('YmdHis');
     }
 }
