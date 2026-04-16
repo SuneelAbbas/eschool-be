@@ -17,6 +17,7 @@ class SectionResource extends JsonResource
             'class_teacher' => $this->class_teacher,
             'grade_id' => $this->grade_id,
             'grade' => new GradeResource($this->whenLoaded('grade')),
+            'students_count' => $this->students()->count(),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

@@ -14,8 +14,10 @@ class SectionRequest extends FormRequest
 
     public function rules(): array
     {
+        $isUpdate = $this->isMethod('PUT') || $this->isMethod('PATCH');
+
         $rules = [
-            'grade_id' => ['required', 'integer', 'exists:grades,id'],
+            'grade_id' => $isUpdate ? ['sometimes', 'integer', 'exists:grades,id'] : ['required', 'integer', 'exists:grades,id'],
             'name' => [
                 'required',
                 'string',
@@ -30,7 +32,7 @@ class SectionRequest extends FormRequest
             'class_teacher' => ['nullable', 'string', 'max:255'],
         ];
 
-        if ($this->isMethod('PUT') || $this->isMethod('PATCH')) {
+        if ($isUpdate) {
             $sectionId = $this->route('id');
             $rules['name'] = [
                 'nullable',
@@ -38,8 +40,11 @@ class SectionRequest extends FormRequest
                 'max:255',
                 Rule::unique('sections')->where(function ($query) use ($sectionId) {
                     $gradeId = $this->input('grade_id');
-                    return $query->where('grade_id', $gradeId)
-                                 ->where('id', '!=', $sectionId);
+                    if ($gradeId) {
+                        return $query->where('grade_id', $gradeId)
+                                     ->where('id', '!=', $sectionId);
+                    }
+                    return $query->where('id', '!=', $sectionId);
                 }),
             ];
         }

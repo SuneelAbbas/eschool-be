@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Section;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -15,6 +16,8 @@ class StudentRequest extends FormRequest
     public function rules(): array
     {
         $instituteId = $this->input('institute_id') ?? $this->user()?->institute_id;
+        $sectionId = $this->input('section_id');
+        $studentId = $this->route('id');
 
         $rules = [
             'first_name' => ['required', 'string', 'max:255'],
@@ -30,7 +33,20 @@ class StudentRequest extends FormRequest
                 }),
             ],
             'roll_no' => ['nullable', 'string', 'max:50'],
-            'section_id' => ['nullable', 'integer', 'exists:sections,id'],
+            'section_id' => ['nullable', 'integer', 'exists:sections,id', function ($attribute, $value, $fail) use ($sectionId, $studentId) {
+                if ($sectionId) {
+                    $section = Section::find($sectionId);
+                    if ($section) {
+                        $studentCount = $section->students()->count();
+                        if ($this->isMethod('PUT') || $this->isMethod('PATCH')) {
+                            $studentCount = $section->students()->where('id', '!=', $studentId)->count();
+                        }
+                        if ($studentCount >= $section->capacity) {
+                            $fail("Section '{$section->name}' has reached its capacity of {$section->capacity} students.");
+                        }
+                    }
+                }
+            }],
             'gender' => ['nullable', 'string', 'in:male,female,other'],
             'mobile_number' => ['nullable', 'string', 'max:20'],
             'parents_name' => ['nullable', 'string', 'max:255'],
@@ -43,7 +59,6 @@ class StudentRequest extends FormRequest
         ];
 
         if ($this->isMethod('PUT') || $this->isMethod('PATCH')) {
-            $studentId = $this->route('id');
             $rules['first_name'] = ['nullable', 'string', 'max:255'];
             $rules['last_name'] = ['nullable', 'string', 'max:255'];
             $rules['registration_number'] = [
