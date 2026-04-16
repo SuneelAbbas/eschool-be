@@ -16,6 +16,7 @@ class GradeFeeRequest extends FormRequest
         return [
             'grade_id' => ['required', 'integer', 'exists:grades,id'],
             'fee_type_id' => ['required', 'integer', 'exists:fee_types,id'],
+            'academic_year' => ['nullable', 'string', 'max:9'],
             'amount' => ['required', 'numeric', 'min:0'],
             'effective_from' => ['nullable', 'date'],
             'effective_to' => ['nullable', 'date', 'after_or_equal:effective_from'],

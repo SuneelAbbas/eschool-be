@@ -14,11 +14,16 @@ class StudentFeeController extends Controller
     {
         $user = $request->user();
         $studentId = $request->input('student_id');
+        $academicYear = $request->input('academic_year');
 
         $query = StudentFee::with(['student', 'feeType']);
 
         if ($studentId) {
             $query->where('student_id', $studentId);
+        }
+
+        if ($academicYear) {
+            $query->where('academic_year', $academicYear);
         }
 
         if (!$user->isSuperAdmin()) {
@@ -38,6 +43,11 @@ class StudentFeeController extends Controller
     public function store(StudentFeeRequest $request): JsonResponse
     {
         $data = $request->validated();
+        
+        if (!isset($data['academic_year'])) {
+            $data['academic_year'] = (string) now()->year;
+        }
+        
         $studentFee = StudentFee::create($data);
         $studentFee->load(['student', 'feeType']);
 

@@ -16,6 +16,7 @@ class StudentFeeRequest extends FormRequest
         return [
             'student_id' => ['required', 'integer', 'exists:students,id'],
             'fee_type_id' => ['required', 'integer', 'exists:fee_types,id'],
+            'academic_year' => ['nullable', 'string', 'max:9'],
             'amount' => ['nullable', 'numeric', 'min:0'],
             'is_custom' => ['boolean'],
             'is_active' => ['boolean'],

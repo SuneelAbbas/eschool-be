@@ -14,11 +14,16 @@ class GradeFeeController extends Controller
     {
         $user = $request->user();
         $gradeId = $request->input('grade_id');
+        $academicYear = $request->input('academic_year');
 
         $query = GradeFee::with(['grade', 'feeType']);
 
         if ($gradeId) {
             $query->where('grade_id', $gradeId);
+        }
+
+        if ($academicYear) {
+            $query->where('academic_year', $academicYear);
         }
 
         if (!$user->isSuperAdmin()) {

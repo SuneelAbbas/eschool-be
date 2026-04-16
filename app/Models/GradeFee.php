@@ -14,6 +14,7 @@ class GradeFee extends Model
     protected $fillable = [
         'grade_id',
         'fee_type_id',
+        'academic_year',
         'amount',
         'effective_from',
         'effective_to',

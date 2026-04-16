@@ -14,6 +14,7 @@ class StudentFee extends Model
     protected $fillable = [
         'student_id',
         'fee_type_id',
+        'academic_year',
         'amount',
         'is_custom',
         'is_active',

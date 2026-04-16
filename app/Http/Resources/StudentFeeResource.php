@@ -13,6 +13,7 @@ class StudentFeeResource extends JsonResource
             'id' => $this->id,
             'student_id' => $this->student_id,
             'fee_type_id' => $this->fee_type_id,
+            'academic_year' => $this->academic_year,
             'amount' => $this->amount,
             'is_custom' => $this->is_custom,
             'is_active' => $this->is_active,

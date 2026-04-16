@@ -13,6 +13,7 @@ class GradeFeeResource extends JsonResource
             'id' => $this->id,
             'grade_id' => $this->grade_id,
             'fee_type_id' => $this->fee_type_id,
+            'academic_year' => $this->academic_year,
             'amount' => $this->amount,
             'effective_from' => $this->effective_from,
             'effective_to' => $this->effective_to,

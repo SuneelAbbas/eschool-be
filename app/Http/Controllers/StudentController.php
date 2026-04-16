@@ -198,12 +198,13 @@ class StudentController extends Controller
 
         $gradeFee = GradeFee::where('grade_id', $gradeId)
             ->where('fee_type_id', $feeTypeId)
+            ->where('academic_year', $academicYear)
             ->first();
 
         if (!$gradeFee) {
             return response()->json([
                 'success' => false,
-                'message' => 'Grade fee not found for the specified fee type',
+                'message' => "Grade fee not found for academic year {$academicYear}",
             ], 404);
         }
 
@@ -222,6 +223,7 @@ class StudentController extends Controller
         foreach ($students as $student) {
             $existing = StudentFee::where('student_id', $student->id)
                 ->where('fee_type_id', $feeTypeId)
+                ->where('academic_year', $academicYear)
                 ->where('is_active', true)
                 ->first();
 
@@ -233,6 +235,7 @@ class StudentController extends Controller
             StudentFee::create([
                 'student_id' => $student->id,
                 'fee_type_id' => $feeTypeId,
+                'academic_year' => $academicYear,
                 'amount' => $gradeFee->amount,
                 'is_custom' => false,
                 'is_active' => true,
@@ -245,7 +248,7 @@ class StudentController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => "Fees assigned to {$created} students. {$skipped} already had this fee.",
+            'message' => "Fees assigned to {$created} students for academic year {$academicYear}. {$skipped} already had this fee.",
             'data' => [
                 'created' => $created,
                 'skipped' => $skipped,
@@ -261,8 +264,10 @@ class StudentController extends Controller
         }
 
         $gradeId = $student->section->grade_id;
+        $academicYear = now()->year;
 
         $oneTimeGradeFees = GradeFee::where('grade_id', $gradeId)
+            ->where('academic_year', $academicYear)
             ->whereHas('feeType', function ($query) {
                 $query->where('type', 'one_time');
             })
@@ -271,12 +276,14 @@ class StudentController extends Controller
         foreach ($oneTimeGradeFees as $gradeFee) {
             $existing = StudentFee::where('student_id', $student->id)
                 ->where('fee_type_id', $gradeFee->fee_type_id)
+                ->where('academic_year', $academicYear)
                 ->first();
 
             if (!$existing) {
                 StudentFee::create([
                     'student_id' => $student->id,
                     'fee_type_id' => $gradeFee->fee_type_id,
+                    'academic_year' => $academicYear,
                     'amount' => $gradeFee->amount,
                     'is_custom' => false,
                     'is_active' => true,
