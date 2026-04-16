@@ -13,6 +13,7 @@ class GradeFeeSeeder extends Seeder
     {
         $grades = Grade::all();
         $feeTypes = FeeType::where('is_active', true)->get();
+        $academicYear = (string) now()->year;
 
         foreach ($grades as $grade) {
             foreach ($feeTypes as $feeType) {
@@ -20,6 +21,7 @@ class GradeFeeSeeder extends Seeder
                     [
                         'grade_id' => $grade->id,
                         'fee_type_id' => $feeType->id,
+                        'academic_year' => $academicYear,
                     ],
                     [
                         'amount' => $feeType->amount,

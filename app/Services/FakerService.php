@@ -296,12 +296,14 @@ class FakerService
         $grades = DB::table('grades')->where('institute_id', $this->instituteId)->get();
         $feeTypes = DB::table('fee_types')->where('institute_id', $this->instituteId)->get();
         $gradeFees = [];
+        $academicYear = (string) now()->year;
 
         foreach ($grades as $grade) {
             foreach ($feeTypes as $feeType) {
                 $gradeFees[] = DB::table('grade_fees')->insertGetId([
                     'grade_id' => $grade->id,
                     'fee_type_id' => $feeType->id,
+                    'academic_year' => $academicYear,
                     'amount' => $feeType->amount + ($grade->id * 100),
                     'effective_from' => now()->startOfYear()->format('Y-m-d'),
                     'effective_to' => null,
