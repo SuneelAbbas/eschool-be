@@ -13,14 +13,31 @@ class FeeTypeController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
+        $perPage = $request->input('per_page', 15);
+        $search = $request->input('search');
 
-        $feeTypes = FeeType::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+        $query = FeeType::when(!$user->isSuperAdmin(), function ($query) use ($user) {
             return $query->where('institute_id', $user->institute_id);
-        })->orderBy('name')->get();
+        });
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('code', 'like', "%{$search}%");
+            });
+        }
+
+        $feeTypes = $query->orderBy('name')->paginate($perPage);
 
         return response()->json([
             'success' => true,
-            'data' => FeeTypeResource::collection($feeTypes),
+            'data' => FeeTypeResource::collection($feeTypes->items()),
+            'meta' => [
+                'current_page' => $feeTypes->currentPage(),
+                'last_page' => $feeTypes->lastPage(),
+                'per_page' => $feeTypes->perPage(),
+                'total' => $feeTypes->total(),
+            ],
         ]);
     }
 
