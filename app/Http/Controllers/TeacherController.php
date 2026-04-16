@@ -13,14 +13,33 @@ class TeacherController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        
-        $teachers = Teacher::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+        $perPage = $request->input('per_page', 15);
+        $search = $request->input('search');
+
+        $query = Teacher::when(!$user->isSuperAdmin(), function ($query) use ($user) {
             return $query->where('institute_id', $user->institute_id);
-        })->get();
+        });
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('cnic_number', 'like', "%{$search}%");
+            });
+        }
+
+        $teachers = $query->orderBy('id', 'desc')->paginate($perPage);
 
         return response()->json([
             'success' => true,
-            'data' => TeacherResource::collection($teachers),
+            'data' => TeacherResource::collection($teachers->items()),
+            'meta' => [
+                'current_page' => $teachers->currentPage(),
+                'last_page' => $teachers->lastPage(),
+                'per_page' => $teachers->perPage(),
+                'total' => $teachers->total(),
+            ],
         ]);
     }
 
