@@ -7,8 +7,12 @@ use App\Http\Resources\StudentResource;
 use App\Models\Student;
 use App\Models\GradeFee;
 use App\Models\StudentFee;
+use App\Models\FeeType;
+use App\Models\FeePayment;
+use App\Models\PaymentRecord;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class StudentController extends Controller
 {
@@ -79,11 +83,152 @@ class StudentController extends Controller
 
         $student = Student::create($data);
 
-        return response()->json([
+        // Auto-assign grade fees to new student
+        $assignedFees = $this->assignGradeFeesToStudent($student);
+
+        $response = [
             'success' => true,
             'message' => 'Student created successfully',
             'data' => new StudentResource($student),
-        ], 201);
+            'fees_assigned' => $assignedFees,
+        ];
+
+        return response()->json($response, 201);
+    }
+
+    /**
+     * Auto-assign grade fees to a newly enrolled student
+     */
+    private function assignGradeFeesToStudent(Student $student): array
+    {
+        if (!$student->section_id) {
+            return [];
+        }
+
+        // Get student's section to find grade
+        $section = $student->section;
+        if (!$section) {
+            return [];
+        }
+
+        $gradeId = $section->grade_id;
+        $admissionDate = $student->admission_date ?? now()->toDateString();
+        $academicYear = $this->getAcademicYear($admissionDate);
+
+        // Get all grade fees for this grade and academic year
+        $gradeFees = GradeFee::where('grade_id', $gradeId)
+            ->where('academic_year', $academicYear)
+            ->with('feeType')
+            ->get();
+
+        if ($gradeFees->isEmpty()) {
+            return [];
+        }
+
+        // Calculate prorate percentage based on admission date
+        $proratePercentage = $this->calculateProratePercentage($admissionDate);
+
+        $assignedFees = [];
+
+        foreach ($gradeFees as $gradeFee) {
+            $feeType = $gradeFee->feeType;
+
+            // Skip if fee type doesn't exist
+            if (!$feeType) {
+                continue;
+            }
+
+            // Check if student already has this fee (for one-time fees - lifetime check)
+            if ($feeType->type === 'one_time') {
+                $alreadyPaid = $this->checkLifetimePayment($student->id, $feeType->id);
+                if ($alreadyPaid) {
+                    continue; // Skip if already paid in any year
+                }
+            }
+
+            // Check if student already has this fee assigned for this academic year
+            $existingFee = StudentFee::where('student_id', $student->id)
+                ->where('fee_type_id', $feeType->id)
+                ->where('academic_year', $academicYear)
+                ->first();
+
+            if ($existingFee) {
+                continue; // Skip if already assigned
+            }
+
+            // Calculate amount based on prorate percentage
+            $amount = $gradeFee->amount * ($proratePercentage / 100);
+
+            // Create student fee record
+            $studentFee = StudentFee::create([
+                'student_id' => $student->id,
+                'fee_type_id' => $feeType->id,
+                'academic_year' => $academicYear,
+                'amount' => $amount,
+                'is_custom' => false,
+                'is_active' => true,
+                'is_inherited' => true,
+                'inherited_from_grade_fee_id' => $gradeFee->id,
+                'prorate_percentage' => $proratePercentage,
+                'status' => 'pending',
+                'effective_from' => $admissionDate,
+            ]);
+
+            $assignedFees[] = [
+                'fee_type' => $feeType->name,
+                'amount' => $amount,
+                'prorate_percentage' => $proratePercentage,
+                'reason' => $proratePercentage < 100 ? 'prorated' : 'full',
+            ];
+        }
+
+        return $assignedFees;
+    }
+
+    /**
+     * Get academic year based on admission date
+     * Academic year runs from June to May (e.g., 2025-2026)
+     */
+    private function getAcademicYear(string $date): string
+    {
+        $dateObj = \Carbon\Carbon::parse($date);
+        $month = $dateObj->month;
+        $year = $dateObj->year;
+
+        // If June or after, academic year is current-year-next
+        // If before June, academic year is previous-year-current
+        if ($month >= 6) {
+            return "{$year}-" . ($year + 1);
+        } else {
+            return ($year - 1) . "-{$year}";
+        }
+    }
+
+    /**
+     * Calculate prorate percentage based on admission day
+     * Before 15th = 100%, 15th or after = 50%
+     */
+    private function calculateProratePercentage(string $date): float
+    {
+        $day = (int) date('j', strtotime($date));
+        return $day < 15 ? 100.00 : 50.00;
+    }
+
+    /**
+     * Check if student has paid this fee type in any previous year (lifetime check)
+     */
+    private function checkLifetimePayment(int $studentId, int $feeTypeId): bool
+    {
+        // Check payment records that include this fee type
+        // Since fee_payments don't directly link to fee_type_id,
+        // we need to check student_fees that are linked to payments
+        return PaymentRecord::whereHas('feePayment', function ($query) use ($studentId) {
+                $query->where('student_id', $studentId);
+            })
+            ->whereHas('studentFee', function ($query) use ($feeTypeId) {
+                $query->where('fee_type_id', $feeTypeId);
+            })
+            ->exists();
     }
 
     public function show(Request $request, int $id): JsonResponse

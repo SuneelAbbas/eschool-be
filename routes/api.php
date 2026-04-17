@@ -116,14 +116,18 @@ Route::get('/grade-fees', [GradeFeeController::class, 'index']);
         Route::post('/grade-fees/batch', [GradeFeeController::class, 'storeBatch']);
         Route::put('/grade-fees/batch', [GradeFeeController::class, 'updateBatch']);
         Route::post('/grade-fees/batch-delete', [GradeFeeController::class, 'destroyBatch']);
+        Route::post('/grades/{gradeId}/fees/assign-to-students', [GradeFeeController::class, 'assignToStudents']);
         Route::get('/grade-fees/{id}', [GradeFeeController::class, 'show']);
         Route::put('/grade-fees/{id}', [GradeFeeController::class, 'update']);
         Route::delete('/grade-fees/{id}', [GradeFeeController::class, 'destroy']);
 
         Route::get('/student-fees', [StudentFeeController::class, 'index']);
         Route::post('/student-fees', [StudentFeeController::class, 'store']);
+        Route::post('/student-fees/assign', [StudentFeeController::class, 'assignToStudent']);
+        Route::get('/students/{studentId}/fees', [StudentFeeController::class, 'getStudentFees']);
         Route::get('/student-fees/{id}', [StudentFeeController::class, 'show']);
         Route::put('/student-fees/{id}', [StudentFeeController::class, 'update']);
+        Route::put('/student-fees/{id}/override', [StudentFeeController::class, 'overrideAmount']);
         Route::delete('/student-fees/{id}', [StudentFeeController::class, 'destroy']);
 
         Route::get('/discounts', [DiscountController::class, 'index']);

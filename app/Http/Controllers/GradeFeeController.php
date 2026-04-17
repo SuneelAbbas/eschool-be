@@ -5,6 +5,10 @@ namespace App\Http\Controllers;
 use App\Http\Requests\GradeFeeRequest;
 use App\Http\Resources\GradeFeeResource;
 use App\Models\GradeFee;
+use App\Models\Student;
+use App\Models\StudentFee;
+use App\Models\FeeType;
+use App\Models\FeePayment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -212,5 +216,147 @@ class GradeFeeController extends Controller
             'message' => $deleted . ' grade fee(s) deleted',
             'deleted_count' => $deleted,
         ]);
+    }
+
+    /**
+     * Assign grade fees to existing students in a grade
+     */
+    public function assignToStudents(Request $request, int $gradeId): JsonResponse
+    {
+        $request->validate([
+            'academic_year' => 'required|string',
+            'grade_fee_ids' => 'nullable|array',
+            'apply_to_existing' => 'boolean',
+        ]);
+
+        $academicYear = $request->input('academic_year');
+        $gradeFeeIds = $request->input('grade_fee_ids', []);
+        $applyToExisting = $request->input('apply_to_existing', true);
+
+        if (!$applyToExisting) {
+            return response()->json([
+                'success' => true,
+                'message' => 'No changes made',
+                'assigned_count' => 0,
+                'skipped_count' => 0,
+            ]);
+        }
+
+        // Get students in this grade
+        $students = Student::where('section_id', function ($query) use ($gradeId) {
+            $query->select('id')
+                ->from('sections')
+                ->where('grade_id', $gradeId);
+        })->where('status', 'active')->get();
+
+        if ($students->isEmpty()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'No students found in this grade',
+                'assigned_count' => 0,
+                'skipped_count' => 0,
+            ]);
+        }
+
+        // Get grade fees
+        $gradeFeesQuery = GradeFee::where('grade_id', $gradeId)
+            ->where('academic_year', $academicYear)
+            ->with('feeType');
+
+        if (!empty($gradeFeeIds)) {
+            $gradeFeesQuery->whereIn('id', $gradeFeeIds);
+        }
+
+        $gradeFees = $gradeFeesQuery->get();
+
+        if ($gradeFees->isEmpty()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'No grade fees found',
+                'assigned_count' => 0,
+                'skipped_count' => 0,
+            ]);
+        }
+
+        $assignedCount = 0;
+        $skippedCount = 0;
+        $errors = [];
+
+        foreach ($students as $student) {
+            foreach ($gradeFees as $gradeFee) {
+                $feeType = $gradeFee->feeType;
+
+                // Check if fee type exists
+                if (!$feeType) {
+                    continue;
+                }
+
+                // For one-time fees, check lifetime payment
+                if ($feeType->type === 'one_time') {
+                    $alreadyPaid = $this->checkLifetimePayment($student->id, $feeType->id);
+                    if ($alreadyPaid) {
+                        $skippedCount++;
+                        continue;
+                    }
+                }
+
+                // Check if already assigned for this academic year
+                $existingFee = StudentFee::where('student_id', $student->id)
+                    ->where('fee_type_id', $feeType->id)
+                    ->where('academic_year', $academicYear)
+                    ->first();
+
+                if ($existingFee) {
+                    $skippedCount++;
+                    continue;
+                }
+
+                try {
+                    StudentFee::create([
+                        'student_id' => $student->id,
+                        'fee_type_id' => $feeType->id,
+                        'academic_year' => $academicYear,
+                        'amount' => $gradeFee->amount,
+                        'is_custom' => false,
+                        'is_active' => true,
+                        'is_inherited' => true,
+                        'inherited_from_grade_fee_id' => $gradeFee->id,
+                        'prorate_percentage' => 100,
+                        'status' => 'pending',
+                        'effective_from' => $gradeFee->effective_from,
+                        'effective_to' => $gradeFee->effective_to,
+                    ]);
+                    $assignedCount++;
+                } catch (\Exception $e) {
+                    $errors[] = [
+                        'student_id' => $student->id,
+                        'fee_type_id' => $feeType->id,
+                        'error' => $e->getMessage(),
+                    ];
+                }
+            }
+        }
+
+        return response()->json([
+            'success' => count($errors) === 0,
+            'message' => "Assigned: {$assignedCount}, Skipped: {$skippedCount}",
+            'assigned_count' => $assignedCount,
+            'skipped_count' => $skippedCount,
+            'errors' => $errors,
+        ]);
+    }
+
+    /**
+     * Check if student has paid this fee type in any previous year (lifetime check)
+     */
+    private function checkLifetimePayment(int $studentId, int $feeTypeId): bool
+    {
+        return \App\Models\PaymentRecord::whereHas('feePayment', function ($query) use ($studentId) {
+                $query->where('student_id', $studentId);
+            })
+            ->whereHas('studentFee', function ($query) use ($feeTypeId) {
+                $query->where('fee_type_id', $feeTypeId);
+            })
+            ->exists();
     }
 }
