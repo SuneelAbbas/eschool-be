@@ -106,7 +106,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:admin,accountant')->group(function () {
         Route::get('/fee-types', [FeeTypeController::class, 'index']);
         Route::post('/fee-types', [FeeTypeController::class, 'store']);
-        Route::delete('/fee-types/batch', [FeeTypeController::class, 'destroyBatch']);
+        Route::post('/fee-types/batch', [FeeTypeController::class, 'destroyBatch']);
         Route::get('/fee-types/{id}', [FeeTypeController::class, 'show']);
         Route::put('/fee-types/{id}', [FeeTypeController::class, 'update']);
         Route::delete('/fee-types/{id}', [FeeTypeController::class, 'destroy']);
