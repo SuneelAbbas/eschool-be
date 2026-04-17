@@ -243,11 +243,20 @@ class GradeFeeController extends Controller
         }
 
         // Get students in this grade
-        $students = Student::where('section_id', function ($query) use ($gradeId) {
-            $query->select('id')
-                ->from('sections')
-                ->where('grade_id', $gradeId);
-        })->where('status', 'active')->get();
+        $sectionIds = \App\Models\Section::where('grade_id', $gradeId)->pluck('id')->toArray();
+        
+        if (empty($sectionIds)) {
+            return response()->json([
+                'success' => true,
+                'message' => 'No sections found for this grade',
+                'assigned_count' => 0,
+                'skipped_count' => 0,
+            ]);
+        }
+
+        $students = Student::whereIn('section_id', $sectionIds)
+            ->where('status', 'active')
+            ->get();
 
         if ($students->isEmpty()) {
             return response()->json([
@@ -358,5 +367,62 @@ class GradeFeeController extends Controller
                 $query->where('fee_type_id', $feeTypeId);
             })
             ->exists();
+    }
+
+    /**
+     * Get students without a specific fee type for a grade
+     */
+    public function getStudentsWithoutFee(Request $request, int $gradeId): JsonResponse
+    {
+        $request->validate([
+            'fee_type_id' => 'required|integer',
+            'academic_year' => 'required|string',
+        ]);
+
+        $feeTypeId = $request->input('fee_type_id');
+        $academicYear = $request->input('academic_year');
+
+        // Get all students in this grade
+        $sectionIds = \App\Models\Section::where('grade_id', $gradeId)->pluck('id')->toArray();
+        
+        if (empty($sectionIds)) {
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total_students' => 0,
+                    'students_without_fee' => 0,
+                    'students_with_fee' => 0,
+                    'will_be_created' => 0,
+                    'will_be_skipped' => 0,
+                ],
+            ]);
+        }
+
+        $studentsInGrade = Student::whereIn('section_id', $sectionIds)
+            ->where('status', 'active')
+            ->get();
+
+        $totalStudents = $studentsInGrade->count();
+
+        // Get students who already have this fee
+        $studentsWithFee = StudentFee::where('fee_type_id', $feeTypeId)
+            ->where('academic_year', $academicYear)
+            ->pluck('student_id')
+            ->toArray();
+
+        $studentsWithoutFee = $studentsInGrade->filter(function ($student) use ($studentsWithFee) {
+            return !in_array($student->id, $studentsWithFee);
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'total_students' => $totalStudents,
+                'students_without_fee' => $studentsWithoutFee->count(),
+                'students_with_fee' => $totalStudents - $studentsWithoutFee->count(),
+                'will_be_created' => $studentsWithoutFee->count(),
+                'will_be_skipped' => $totalStudents - $studentsWithoutFee->count(),
+            ],
+        ]);
     }
 }

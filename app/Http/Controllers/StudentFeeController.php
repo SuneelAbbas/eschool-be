@@ -116,6 +116,53 @@ class StudentFeeController extends Controller
     }
 
     /**
+     * Clear all student fees for a grade (bulk delete)
+     */
+    public function clearGradeStudentFees(Request $request): JsonResponse
+    {
+        $request->validate([
+            'grade_id' => 'required|integer',
+            'academic_year' => 'required|string',
+        ]);
+
+        $gradeId = $request->input('grade_id');
+        $academicYear = $request->input('academic_year');
+
+        $sectionIds = \App\Models\Section::where('grade_id', $gradeId)->pluck('id')->toArray();
+
+        if (empty($sectionIds)) {
+            return response()->json([
+                'success' => true,
+                'message' => 'No sections found for this grade',
+                'deleted_count' => 0,
+            ]);
+        }
+
+        $studentIds = \App\Models\Student::whereIn('section_id', $sectionIds)
+            ->where('status', 'active')
+            ->pluck('id')
+            ->toArray();
+
+        if (empty($studentIds)) {
+            return response()->json([
+                'success' => true,
+                'message' => 'No students found in this grade',
+                'deleted_count' => 0,
+            ]);
+        }
+
+        $deleted = StudentFee::whereIn('student_id', $studentIds)
+            ->where('academic_year', $academicYear)
+            ->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => "Cleared {$deleted} student fee(s) for this grade",
+            'deleted_count' => $deleted,
+        ]);
+    }
+
+    /**
      * Get all fees for a specific student with balance calculation
      */
     public function getStudentFees(Request $request, int $studentId): JsonResponse
