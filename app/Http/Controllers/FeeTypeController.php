@@ -129,4 +129,29 @@ class FeeTypeController extends Controller
             'message' => 'Fee type deleted successfully',
         ]);
     }
+
+    public function destroyBatch(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $ids = $request->input('ids', []);
+
+        if (empty($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No IDs provided',
+            ], 422);
+        }
+
+        $query = FeeType::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        });
+
+        $deleted = $query->whereIn('id', $ids)->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => $deleted . ' fee type(s) deleted',
+            'deleted_count' => $deleted,
+        ]);
+    }
 }

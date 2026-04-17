@@ -16,6 +16,9 @@ class GradeResource extends JsonResource
             'institute_id' => $this->institute_id,
             'sections_count' => $this->sections()->count(),
             'students_count' => $this->sections()->withCount('students')->get()->sum('students_count'),
+            'grade_fees' => $this->whenLoaded('gradeFees', function () {
+                return GradeFeeResource::collection($this->gradeFees);
+            }),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

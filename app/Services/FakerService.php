@@ -296,7 +296,15 @@ class FakerService
         $grades = DB::table('grades')->where('institute_id', $this->instituteId)->get();
         $feeTypes = DB::table('fee_types')->where('institute_id', $this->instituteId)->get();
         $gradeFees = [];
-        $academicYear = (string) now()->year;
+        
+        $currentYear = (int) now()->year;
+        $currentMonth = (int) now()->month;
+        
+        if ($currentMonth >= 6) {
+            $academicYear = "{$currentYear}-" . ($currentYear + 1);
+        } else {
+            $academicYear = ($currentYear - 1) . "-{$currentYear}";
+        }
 
         foreach ($grades as $grade) {
             foreach ($feeTypes as $feeType) {

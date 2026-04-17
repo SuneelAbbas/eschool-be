@@ -106,12 +106,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:admin,accountant')->group(function () {
         Route::get('/fee-types', [FeeTypeController::class, 'index']);
         Route::post('/fee-types', [FeeTypeController::class, 'store']);
+        Route::delete('/fee-types/batch', [FeeTypeController::class, 'destroyBatch']);
         Route::get('/fee-types/{id}', [FeeTypeController::class, 'show']);
         Route::put('/fee-types/{id}', [FeeTypeController::class, 'update']);
         Route::delete('/fee-types/{id}', [FeeTypeController::class, 'destroy']);
 
-        Route::get('/grade-fees', [GradeFeeController::class, 'index']);
+Route::get('/grade-fees', [GradeFeeController::class, 'index']);
         Route::post('/grade-fees', [GradeFeeController::class, 'store']);
+        Route::post('/grade-fees/batch', [GradeFeeController::class, 'storeBatch']);
+        Route::put('/grade-fees/batch', [GradeFeeController::class, 'updateBatch']);
+        Route::delete('/grade-fees/batch', [GradeFeeController::class, 'destroyBatch']);
         Route::get('/grade-fees/{id}', [GradeFeeController::class, 'show']);
         Route::put('/grade-fees/{id}', [GradeFeeController::class, 'update']);
         Route::delete('/grade-fees/{id}', [GradeFeeController::class, 'destroy']);

@@ -109,4 +109,108 @@ class GradeFeeController extends Controller
             'message' => 'Fee removed from grade successfully',
         ]);
     }
+
+    public function storeBatch(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $gradeFees = $request->input('grade_fees', []);
+        
+        if (empty($gradeFees)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No grade fees provided',
+            ], 422);
+        }
+
+        $created = [];
+        $errors = [];
+        
+        foreach ($gradeFees as $index => $feeData) {
+            try {
+                $gradeFee = GradeFee::create([
+                    'grade_id' => $feeData['grade_id'],
+                    'fee_type_id' => $feeData['fee_type_id'],
+                    'academic_year' => $feeData['academic_year'] ?? null,
+                    'amount' => $feeData['amount'],
+                    'effective_from' => $feeData['effective_from'],
+                    'effective_to' => $feeData['effective_to'] ?? null,
+                ]);
+                $gradeFee->load(['grade', 'feeType']);
+                $created[] = $gradeFee;
+            } catch (\Exception $e) {
+                $errors[] = ['index' => $index, 'error' => $e->getMessage()];
+            }
+        }
+
+        return response()->json([
+            'success' => count($errors) === 0,
+            'message' => count($created) . ' grade fee(s) created',
+            'data' => GradeFeeResource::collection($created),
+            'created_count' => count($created),
+            'errors' => $errors,
+        ]);
+    }
+
+    public function updateBatch(Request $request): JsonResponse
+    {
+        $gradeFeesData = $request->input('grade_fees', []);
+        
+        if (empty($gradeFeesData)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No grade fees provided',
+            ], 422);
+        }
+
+        $updated = [];
+        $errors = [];
+        
+        foreach ($gradeFeesData as $index => $feeData) {
+            try {
+                $gradeFee = GradeFee::find($feeData['id']);
+                
+                if ($gradeFee) {
+                    $gradeFee->update([
+                        'amount' => $feeData['amount'],
+                        'effective_from' => $feeData['effective_from'],
+                        'effective_to' => $feeData['effective_to'] ?? null,
+                    ]);
+                    $gradeFee->load(['grade', 'feeType']);
+                    $updated[] = $gradeFee;
+                } else {
+                    $errors[] = ['index' => $index, 'error' => 'Grade fee not found'];
+                }
+            } catch (\Exception $e) {
+                $errors[] = ['index' => $index, 'error' => $e->getMessage()];
+            }
+        }
+
+        return response()->json([
+            'success' => count($errors) === 0,
+            'message' => count($updated) . ' grade fee(s) updated',
+            'data' => GradeFeeResource::collection($updated),
+            'updated_count' => count($updated),
+            'errors' => $errors,
+        ]);
+    }
+
+    public function destroyBatch(Request $request): JsonResponse
+    {
+        $ids = $request->input('ids', []);
+        
+        if (empty($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No IDs provided',
+            ], 422);
+        }
+
+        $deleted = GradeFee::destroy($ids);
+
+        return response()->json([
+            'success' => true,
+            'message' => $deleted . ' grade fee(s) deleted',
+            'deleted_count' => $deleted,
+        ]);
+    }
 }

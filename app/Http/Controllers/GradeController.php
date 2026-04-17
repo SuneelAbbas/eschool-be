@@ -13,10 +13,21 @@ class GradeController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
+        $academicYear = $request->input('academic_year');
 
-        $grades = Grade::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+        $gradesQuery = Grade::when(!$user->isSuperAdmin(), function ($query) use ($user) {
             return $query->where('institute_id', $user->institute_id);
-        })->with('sections')->get();
+        })->with('sections');
+
+        $grades = $gradesQuery->get();
+
+        if ($academicYear) {
+            $grades->each(function ($grade) use ($academicYear) {
+                $grade->load(['gradeFees' => function ($query) use ($academicYear) {
+                    $query->where('academic_year', $academicYear);
+                }]);
+            });
+        }
 
         return response()->json([
             'success' => true,

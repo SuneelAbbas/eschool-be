@@ -13,7 +13,15 @@ class GradeFeeSeeder extends Seeder
     {
         $grades = Grade::all();
         $feeTypes = FeeType::where('is_active', true)->get();
-        $academicYear = (string) now()->year;
+        
+        $currentYear = (int) now()->year;
+        $currentMonth = (int) now()->month;
+        
+        if ($currentMonth >= 6) {
+            $academicYear = "{$currentYear}-" . ($currentYear + 1);
+        } else {
+            $academicYear = ($currentYear - 1) . "-{$currentYear}";
+        }
 
         foreach ($grades as $grade) {
             foreach ($feeTypes as $feeType) {
@@ -32,6 +40,6 @@ class GradeFeeSeeder extends Seeder
             }
         }
 
-        $this->command->info('Grade fees seeded for ' . $grades->count() . ' grades and ' . $feeTypes->count() . ' fee types.');
+        $this->command->info("Grade fees seeded for {$grades->count()} grades and {$feeTypes->count()} fee types for academic year {$academicYear}.");
     }
 }
