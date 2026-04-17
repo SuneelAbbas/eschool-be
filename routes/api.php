@@ -115,7 +115,7 @@ Route::get('/grade-fees', [GradeFeeController::class, 'index']);
         Route::post('/grade-fees', [GradeFeeController::class, 'store']);
         Route::post('/grade-fees/batch', [GradeFeeController::class, 'storeBatch']);
         Route::put('/grade-fees/batch', [GradeFeeController::class, 'updateBatch']);
-        Route::delete('/grade-fees/batch', [GradeFeeController::class, 'destroyBatch']);
+        Route::post('/grade-fees/batch-delete', [GradeFeeController::class, 'destroyBatch']);
         Route::get('/grade-fees/{id}', [GradeFeeController::class, 'show']);
         Route::put('/grade-fees/{id}', [GradeFeeController::class, 'update']);
         Route::delete('/grade-fees/{id}', [GradeFeeController::class, 'destroy']);
