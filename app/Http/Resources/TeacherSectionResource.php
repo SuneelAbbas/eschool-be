@@ -36,13 +36,11 @@ class TeacherSectionResource extends JsonResource
                     ] : null,
                 ];
             }),
-            'subject' => $this->whenLoaded('subject', function () {
-                return $this->subject ? [
-                    'id' => $this->subject->id,
-                    'name' => $this->subject->name,
-                    'code' => $this->subject->code,
-                ] : null;
-            }),
+            'subject' => ($this->subject_id && $this->getRelation('subject') ? [
+                'id' => $this->getRelation('subject')->id,
+                'name' => $this->getRelation('subject')->name,
+                'code' => $this->getRelation('subject')->code,
+            ] : null),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

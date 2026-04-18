@@ -58,7 +58,7 @@ class TeacherSectionController extends Controller
             ], 404);
         }
 
-        $section = Section::find($data['section_id']);
+$section = Section::find($data['section_id']);
         if (!$section) {
             return response()->json([
                 'success' => false,
@@ -66,43 +66,63 @@ class TeacherSectionController extends Controller
             ], 404);
         }
 
-        $existing = TeacherSection::where('teacher_id', $data['teacher_id'])
-            ->where('section_id', $data['section_id'])
+        // Check if section already has a section head (only for class teacher assignments)
+        $existingClassTeacher = TeacherSection::where('section_id', $data['section_id'])
+            ->where('is_class_teacher', true)
             ->first();
 
-        if ($existing) {
+        if (!empty($data['is_class_teacher']) && $existingClassTeacher) {
             return response()->json([
                 'success' => false,
-                'message' => 'Teacher is already assigned to this section',
+                'message' => 'Section already has a section head. Please remove them first.',
             ], 422);
         }
 
+        // Check if this teacher already has class teacher assignment for this section
+        $existingClassTeacherForTeacher = TeacherSection::where('teacher_id', $data['teacher_id'])
+            ->where('section_id', $data['section_id'])
+            ->where('is_class_teacher', true)
+            ->first();
+
+        // For subject assignments (not class teacher), always create new - don't update existing
+        $isSubjectAssignment = empty($data['is_class_teacher']);
+        
         DB::beginTransaction();
         try {
-            $previousClassTeacher = null;
-            if (!empty($data['is_class_teacher'])) {
-                $prev = TeacherSection::where('section_id', $data['section_id'])
-                    ->where('is_class_teacher', true)
-                    ->first();
-                
-                if ($prev) {
-                    $previousClassTeacher = $prev->teacher->first_name . ' ' . $prev->teacher->last_name ?? 'Another teacher';
-                    $prev->update(['is_class_teacher' => false]);
-                }
-
-                $section->update(['class_teacher' => $teacher->first_name . ' ' . $teacher->last_name]);
+            // If assigning as class teacher and already has class teacher role, update
+            if (!empty($data['is_class_teacher']) && $existingClassTeacherForTeacher) {
+                $existingClassTeacherForTeacher->update([
+                    'subject_id' => $data['subject_id'] ?? null,
+                    'is_class_teacher' => true,
+                ]);
+                $assignment = $existingClassTeacherForTeacher;
+            } elseif (!empty($data['is_class_teacher']) && !$existingClassTeacherForTeacher) {
+                // New class teacher assignment
+                $assignment = TeacherSection::create([
+                    'teacher_id' => $data['teacher_id'],
+                    'section_id' => $data['section_id'],
+                    'subject_id' => null,
+                    'is_class_teacher' => true,
+                ]);
+            } else {
+                // Subject assignment - always create new, never update existing
+                $assignment = TeacherSection::create([
+                    'teacher_id' => $data['teacher_id'],
+                    'section_id' => $data['section_id'],
+                    'subject_id' => $data['subject_id'] ?? null,
+                    'is_class_teacher' => false,
+                ]);
             }
 
-            $assignment = TeacherSection::create([
-                'teacher_id' => $data['teacher_id'],
-                'section_id' => $data['section_id'],
-                'subject_id' => $data['subject_id'] ?? null,
-                'is_class_teacher' => $data['is_class_teacher'] ?? false,
-            ]);
+            // Update section's class_teacher field if this is a class teacher assignment
+            if (!empty($data['is_class_teacher'])) {
+                $section->update(['class_teacher' => $teacher->first_name . ' ' . $teacher->last_name]);
+            }
 
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error("TeacherSection creation failed: " . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create assignment',
@@ -111,8 +131,8 @@ class TeacherSectionController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => $previousClassTeacher 
-                ? "Teacher assigned as class teacher. {$previousClassTeacher} removed from class teacher role."
+            'message' => !empty($data['is_class_teacher']) 
+                ? 'Teacher assigned as section head'
                 : 'Teacher assigned to section successfully',
             'data' => new TeacherSectionResource($assignment->load(['teacher', 'section.grade', 'subject'])),
         ], 201);
@@ -236,5 +256,136 @@ class TeacherSectionController extends Controller
             'success' => true,
             'message' => 'Assignment removed successfully',
         ]);
+    }
+
+    public function assignSectionHead(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $data = $request->validate([
+            'teacher_id' => 'required|exists:teachers,id',
+            'section_id' => 'required|exists:sections,id',
+        ]);
+
+        $teacher = Teacher::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->find($data['teacher_id']);
+
+        if (!$teacher) {
+            return response()->json(['success' => false, 'message' => 'Teacher not found'], 404);
+        }
+
+        $section = Section::find($data['section_id']);
+        if (!$section) {
+            return response()->json(['success' => false, 'message' => 'Section not found'], 404);
+        }
+
+        // Check if section already has a section head
+        $existingClassTeacher = TeacherSection::where('section_id', $data['section_id'])
+            ->where('is_class_teacher', true)
+            ->first();
+
+        if ($existingClassTeacher) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Section already has a section head. Please remove them first.',
+            ], 422);
+        }
+
+        // Check if this teacher is already class teacher for this section
+        $existingForTeacher = TeacherSection::where('teacher_id', $data['teacher_id'])
+            ->where('section_id', $data['section_id'])
+            ->where('is_class_teacher', true)
+            ->first();
+
+        DB::beginTransaction();
+        try {
+            if ($existingForTeacher) {
+                // Already class teacher, just ensure class_teacher field is set
+                $section->update(['class_teacher' => $teacher->first_name . ' ' . $teacher->last_name]);
+                $assignment = $existingForTeacher;
+            } else {
+                // Create new class teacher assignment
+                $assignment = TeacherSection::create([
+                    'teacher_id' => $data['teacher_id'],
+                    'section_id' => $data['section_id'],
+                    'subject_id' => null,
+                    'is_class_teacher' => true,
+                ]);
+                $section->update(['class_teacher' => $teacher->first_name . ' ' . $teacher->last_name]);
+            }
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Teacher assigned as section head',
+                'data' => new TeacherSectionResource($assignment->load(['teacher', 'section.grade', 'subject'])),
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['success' => false, 'message' => 'Failed to assign section head'], 500);
+        }
+    }
+
+    public function assignSubject(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $data = $request->validate([
+            'teacher_id' => 'required|exists:teachers,id',
+            'section_id' => 'required|exists:sections,id',
+            'subject_id' => 'required|exists:subjects,id',
+        ]);
+
+        $teacher = Teacher::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->find($data['teacher_id']);
+
+        if (!$teacher) {
+            return response()->json(['success' => false, 'message' => 'Teacher not found'], 404);
+        }
+
+        $section = Section::find($data['section_id']);
+        if (!$section) {
+            return response()->json(['success' => false, 'message' => 'Section not found'], 404);
+        }
+
+        // Check if this teacher already has a subject assignment for this section
+        $existingSubjectAssignment = TeacherSection::where('teacher_id', $data['teacher_id'])
+            ->where('section_id', $data['section_id'])
+            ->where('is_class_teacher', false)
+            ->first();
+
+        if ($existingSubjectAssignment) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Teacher is already assigned to teach a subject in this section',
+            ], 422);
+        }
+
+        // Check if section has a section head (from another teacher)
+        $existingClassTeacher = TeacherSection::where('section_id', $data['section_id'])
+            ->where('is_class_teacher', true)
+            ->first();
+
+        $differentTeacher = $existingClassTeacher && $existingClassTeacher->teacher_id != $data['teacher_id'];
+
+        DB::beginTransaction();
+        try {
+            $assignment = TeacherSection::create([
+                'teacher_id' => $data['teacher_id'],
+                'section_id' => $data['section_id'],
+                'subject_id' => $data['subject_id'],
+                'is_class_teacher' => false,
+            ]);
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Subject assigned to teacher',
+                'data' => new TeacherSectionResource($assignment->load(['teacher', 'section.grade', 'subject'])),
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['success' => false, 'message' => 'Failed to assign subject'], 500);
+        }
     }
 }

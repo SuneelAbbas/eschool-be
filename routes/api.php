@@ -109,6 +109,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/teacher-sections/{id}', [TeacherSectionController::class, 'destroy']);
     });
 
+    Route::middleware('role:admin')->group(function () {
+        // Separate endpoints for section head and subject assignment
+        Route::post('/teacher-sections/section-head', [TeacherSectionController::class, 'assignSectionHead']);
+        Route::post('/teacher-sections/subject', [TeacherSectionController::class, 'assignSubject']);
+    });
+
     Route::middleware('role:admin,accountant')->group(function () {
         Route::get('/fee-types', [FeeTypeController::class, 'index']);
         Route::post('/fee-types', [FeeTypeController::class, 'store']);
