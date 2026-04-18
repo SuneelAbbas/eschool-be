@@ -68,6 +68,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('role:admin,teacher,accountant')->group(function () {
         Route::get('/students', [StudentController::class, 'index']);
+        Route::get('/students/stats', [StudentController::class, 'stats']);
         Route::post('/students', [StudentController::class, 'store']);
         Route::get('/students/generate-reg-number', [StudentController::class, 'generateRegNumber']);
         Route::get('/students/{id}', [StudentController::class, 'show']);

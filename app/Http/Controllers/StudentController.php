@@ -40,6 +40,9 @@ class StudentController extends Controller
         $perPage = $request->input('per_page', 15);
         $search = $request->input('search');
         $sectionId = $request->input('section_id');
+        $gradeId = $request->input('grade_id');
+        $gender = $request->input('gender');
+        $status = $request->input('status');
 
         $query = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
             return $query->where('institute_id', $user->institute_id);
@@ -58,6 +61,20 @@ class StudentController extends Controller
             $query->where('section_id', $sectionId);
         }
 
+        if ($gradeId) {
+            $query->whereHas('section', function ($q) use ($gradeId) {
+                $q->where('grade_id', $gradeId);
+            });
+        }
+
+        if ($gender) {
+            $query->where('gender', $gender);
+        }
+
+        if ($status) {
+            $query->where('status', $status);
+        }
+
         $students = $query->orderBy('id', 'desc')->paginate($perPage);
 
         return response()->json([
@@ -68,6 +85,32 @@ class StudentController extends Controller
                 'last_page' => $students->lastPage(),
                 'per_page' => $students->perPage(),
                 'total' => $students->total(),
+            ],
+        ]);
+    }
+
+    public function stats(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        
+        $baseQuery = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        });
+
+        $total = (clone $baseQuery)->count();
+        $male = (clone $baseQuery)->where('gender', 'male')->count();
+        $female = (clone $baseQuery)->where('gender', 'female')->count();
+        $active = (clone $baseQuery)->where('status', 'active')->count();
+        $inactive = (clone $baseQuery)->where('status', 'inactive')->count();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'total' => $total,
+                'male' => $male,
+                'female' => $female,
+                'active' => $active,
+                'inactive' => $inactive,
             ],
         ]);
     }
