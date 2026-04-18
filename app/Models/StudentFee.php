@@ -24,6 +24,7 @@ class StudentFee extends Model
         'inherited_from_grade_fee_id',
         'prorate_percentage',
         'status',
+        'month',
     ];
 
     protected $casts = [

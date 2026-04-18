@@ -227,18 +227,22 @@ class GradeFeeController extends Controller
             'academic_year' => 'required|string',
             'grade_fee_ids' => 'nullable|array',
             'apply_to_existing' => 'boolean',
+            'months' => 'nullable|array',
         ]);
 
         $academicYear = $request->input('academic_year');
         $gradeFeeIds = $request->input('grade_fee_ids', []);
         $applyToExisting = $request->input('apply_to_existing', true);
+        $months = $request->input('months', []);
 
         if (!$applyToExisting) {
             return response()->json([
                 'success' => true,
                 'message' => 'No changes made',
-                'assigned_count' => 0,
-                'skipped_count' => 0,
+                'data' => [
+                    'assigned_count' => 0,
+                    'skipped_count' => 0,
+                ]
             ]);
         }
 
@@ -249,8 +253,10 @@ class GradeFeeController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'No sections found for this grade',
-                'assigned_count' => 0,
-                'skipped_count' => 0,
+                'data' => [
+                    'assigned_count' => 0,
+                    'skipped_count' => 0,
+                ]
             ]);
         }
 
@@ -262,8 +268,10 @@ class GradeFeeController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'No students found in this grade',
-                'assigned_count' => 0,
-                'skipped_count' => 0,
+                'data' => [
+                    'assigned_count' => 0,
+                    'skipped_count' => 0,
+                ]
             ]);
         }
 
@@ -282,8 +290,10 @@ class GradeFeeController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'No grade fees found',
-                'assigned_count' => 0,
-                'skipped_count' => 0,
+                'data' => [
+                    'assigned_count' => 0,
+                    'skipped_count' => 0,
+                ]
             ]);
         }
 
@@ -295,53 +305,67 @@ class GradeFeeController extends Controller
             foreach ($gradeFees as $gradeFee) {
                 $feeType = $gradeFee->feeType;
 
-                // Check if fee type exists
                 if (!$feeType) {
                     continue;
                 }
 
-                // For one-time fees, check lifetime payment
-                if ($feeType->type === 'one_time') {
-                    $alreadyPaid = $this->checkLifetimePayment($student->id, $feeType->id);
-                    if ($alreadyPaid) {
+                // Branching logic based on fee type
+                $targetMonths = [null]; // Default for one_time and annual
+                if ($feeType->type === 'monthly') {
+                    $targetMonths = !empty($months) ? $months : [date('F')]; // Default to current month if none provided
+                }
+
+                foreach ($targetMonths as $month) {
+                    // For one-time fees, check lifetime payment
+                    if ($feeType->type === 'one_time') {
+                        $alreadyPaid = $this->checkLifetimePayment($student->id, $feeType->id);
+                        if ($alreadyPaid) {
+                            $skippedCount++;
+                            continue;
+                        }
+                    }
+
+                    // Check if already assigned for this academic year (and month if applicable)
+                    $existingFeeQuery = StudentFee::where('student_id', $student->id)
+                        ->where('fee_type_id', $feeType->id)
+                        ->where('academic_year', $academicYear);
+                    
+                    if ($month !== null) {
+                        $existingFeeQuery->where('month', $month);
+                    } else {
+                        $existingFeeQuery->whereNull('month');
+                    }
+
+                    if ($existingFeeQuery->exists()) {
                         $skippedCount++;
                         continue;
                     }
-                }
 
-                // Check if already assigned for this academic year
-                $existingFee = StudentFee::where('student_id', $student->id)
-                    ->where('fee_type_id', $feeType->id)
-                    ->where('academic_year', $academicYear)
-                    ->first();
-
-                if ($existingFee) {
-                    $skippedCount++;
-                    continue;
-                }
-
-                try {
-                    StudentFee::create([
-                        'student_id' => $student->id,
-                        'fee_type_id' => $feeType->id,
-                        'academic_year' => $academicYear,
-                        'amount' => $gradeFee->amount,
-                        'is_custom' => false,
-                        'is_active' => true,
-                        'is_inherited' => true,
-                        'inherited_from_grade_fee_id' => $gradeFee->id,
-                        'prorate_percentage' => 100,
-                        'status' => 'pending',
-                        'effective_from' => $gradeFee->effective_from,
-                        'effective_to' => $gradeFee->effective_to,
-                    ]);
-                    $assignedCount++;
-                } catch (\Exception $e) {
-                    $errors[] = [
-                        'student_id' => $student->id,
-                        'fee_type_id' => $feeType->id,
-                        'error' => $e->getMessage(),
-                    ];
+                    try {
+                        StudentFee::create([
+                            'student_id' => $student->id,
+                            'fee_type_id' => $feeType->id,
+                            'academic_year' => $academicYear,
+                            'month' => $month,
+                            'amount' => $gradeFee->amount,
+                            'is_custom' => false,
+                            'is_active' => true,
+                            'is_inherited' => true,
+                            'inherited_from_grade_fee_id' => $gradeFee->id,
+                            'prorate_percentage' => 100,
+                            'status' => 'pending',
+                            'effective_from' => $gradeFee->effective_from,
+                            'effective_to' => $gradeFee->effective_to,
+                        ]);
+                        $assignedCount++;
+                    } catch (\Exception $e) {
+                        $errors[] = [
+                            'student_id' => $student->id,
+                            'fee_type_id' => $feeType->id,
+                            'month' => $month,
+                            'error' => $e->getMessage(),
+                        ];
+                    }
                 }
             }
         }
@@ -349,9 +373,11 @@ class GradeFeeController extends Controller
         return response()->json([
             'success' => count($errors) === 0,
             'message' => "Assigned: {$assignedCount}, Skipped: {$skippedCount}",
-            'assigned_count' => $assignedCount,
-            'skipped_count' => $skippedCount,
-            'errors' => $errors,
+            'data' => [
+                'assigned_count' => $assignedCount,
+                'skipped_count' => $skippedCount,
+                'errors' => $errors,
+            ]
         ]);
     }
 

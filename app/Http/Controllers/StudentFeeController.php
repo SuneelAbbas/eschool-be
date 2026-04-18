@@ -123,10 +123,12 @@ class StudentFeeController extends Controller
         $request->validate([
             'grade_id' => 'required|integer',
             'academic_year' => 'required|string',
+            'month' => 'nullable|string',
         ]);
 
         $gradeId = $request->input('grade_id');
         $academicYear = $request->input('academic_year');
+        $month = $request->input('month');
 
         $sectionIds = \App\Models\Section::where('grade_id', $gradeId)->pluck('id')->toArray();
 
@@ -134,7 +136,9 @@ class StudentFeeController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'No sections found for this grade',
-                'deleted_count' => 0,
+                'data' => [
+                    'deleted_count' => 0,
+                ]
             ]);
         }
 
@@ -147,18 +151,27 @@ class StudentFeeController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'No students found in this grade',
-                'deleted_count' => 0,
+                'data' => [
+                    'deleted_count' => 0,
+                ]
             ]);
         }
 
-        $deleted = StudentFee::whereIn('student_id', $studentIds)
-            ->where('academic_year', $academicYear)
-            ->delete();
+        $query = StudentFee::whereIn('student_id', $studentIds)
+            ->where('academic_year', $academicYear);
+
+        if ($month) {
+            $query->where('month', $month);
+        }
+
+        $deleted = $query->delete();
 
         return response()->json([
             'success' => true,
             'message' => "Cleared {$deleted} student fee(s) for this grade",
-            'deleted_count' => $deleted,
+            'data' => [
+                'deleted_count' => $deleted,
+            ]
         ]);
     }
 
@@ -259,27 +272,34 @@ class StudentFeeController extends Controller
     public function assignToStudent(Request $request): JsonResponse
     {
         $request->validate([
-            'student_id' => 'required|integer',
-            'fee_type_id' => 'required|integer',
+            'student_id' => 'required|exists:students,id',
+            'fee_type_id' => 'required|exists:fee_types,id',
             'academic_year' => 'required|string',
-            'amount' => 'nullable|numeric|min:0',
+            'amount' => 'nullable|numeric',
+            'month' => 'nullable|string',
         ]);
 
         $studentId = $request->input('student_id');
         $feeTypeId = $request->input('fee_type_id');
         $academicYear = $request->input('academic_year');
         $amount = $request->input('amount');
+        $month = $request->input('month');
 
         // Check if already exists
-        $existing = StudentFee::where('student_id', $studentId)
+        $existingQuery = StudentFee::where('student_id', $studentId)
             ->where('fee_type_id', $feeTypeId)
-            ->where('academic_year', $academicYear)
-            ->first();
+            ->where('academic_year', $academicYear);
 
-        if ($existing) {
+        if ($month) {
+            $existingQuery->where('month', $month);
+        } else {
+            $existingQuery->whereNull('month');
+        }
+
+        if ($existingQuery->exists()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Fee already assigned to this student for this academic year',
+                'message' => 'Fee already assigned to this student for this academic year/month',
             ], 422);
         }
 
@@ -296,6 +316,7 @@ class StudentFeeController extends Controller
             'student_id' => $studentId,
             'fee_type_id' => $feeTypeId,
             'academic_year' => $academicYear,
+            'month' => $month,
             'amount' => $amount ?? $feeType->amount,
             'is_custom' => $amount !== null,
             'is_active' => true,
