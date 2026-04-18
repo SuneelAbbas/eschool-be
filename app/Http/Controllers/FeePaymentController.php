@@ -286,4 +286,37 @@ class FeePaymentController extends Controller
             ],
         ]);
     }
+
+    public function studentPayments(Request $request, int $studentId): JsonResponse
+    {
+        $user = $request->user();
+        $perPage = $request->input('per_page', 20);
+
+        $student = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->find($studentId);
+
+        if (!$student) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Student not found',
+            ], 404);
+        }
+
+        $payments = FeePayment::with(['receiver', 'bankAccount', 'paymentRecords.studentFee.feeType'])
+            ->where('student_id', $studentId)
+            ->orderBy('payment_date', 'desc')
+            ->paginate($perPage);
+
+        return response()->json([
+            'success' => true,
+            'data' => FeePaymentResource::collection($payments->items()),
+            'meta' => [
+                'current_page' => $payments->currentPage(),
+                'last_page' => $payments->lastPage(),
+                'per_page' => $payments->perPage(),
+                'total' => $payments->total(),
+            ],
+        ]);
+    }
 }

@@ -146,13 +146,116 @@ class GradeFeeController extends Controller
             }
         }
 
+        // Auto-assign to existing students in the same grade
+        if (!empty($created)) {
+            $autoAssigned = $this->autoAssignToStudents($created);
+        }
+
         return response()->json([
             'success' => count($errors) === 0,
             'message' => count($created) . ' grade fee(s) created',
             'data' => GradeFeeResource::collection($created),
             'created_count' => count($created),
+            'auto_assigned_count' => $autoAssigned ?? 0,
             'errors' => $errors,
         ]);
+    }
+
+    /**
+     * Auto-assign newly created grade fees to existing students
+     */
+    private function autoAssignToStudents(array $gradeFees): int
+    {
+        $assignedCount = 0;
+        $currentMonth = date('n'); // 1-12
+
+        // Group grade fees by grade
+        $groupedByGrade = collect($gradeFees)->groupBy('grade_id');
+
+        foreach ($groupedByGrade as $gradeId => $fees) {
+            $academicYear = $fees->first()->academic_year;
+
+            // Get students in this grade
+            $sectionIds = \App\Models\Section::where('grade_id', $gradeId)->pluck('id')->toArray();
+            if (empty($sectionIds)) continue;
+
+            $students = Student::whereIn('section_id', $sectionIds)
+                ->where('status', 'active')
+                ->get();
+
+            if ($students->isEmpty()) continue;
+
+            foreach ($students as $student) {
+                foreach ($fees as $gradeFee) {
+                    $feeType = $gradeFee->feeType;
+                    if (!$feeType) continue;
+
+                    // Determine target month(s)
+                    $targetMonths = [null];
+                    if ($feeType->type === 'monthly') {
+                        $targetMonths = [(string)$currentMonth];
+                    }
+
+                    foreach ($targetMonths as $month) {
+                        // For one-time fees, check lifetime payment
+                        if ($feeType->type === 'one_time') {
+                            if ($this->checkLifetimePayment($student->id, $feeType->id)) {
+                                continue;
+                            }
+                        }
+
+                        // Check if already exists
+                        $existingQuery = StudentFee::where('student_id', $student->id)
+                            ->where('fee_type_id', $feeType->id)
+                            ->where('academic_year', $academicYear);
+                        
+                        if ($month !== null) {
+                            $existingQuery->where('month', $month);
+                        } else {
+                            $existingQuery->whereNull('month');
+                        }
+
+                        if ($existingQuery->exists()) {
+                            continue;
+                        }
+
+                        // Get admission day for prorating
+                        $admissionDay = $student->admission_date 
+                            ? \Carbon\Carbon::parse($student->admission_date)->day 
+                            : 1;
+                        $proratePercentage = $admissionDay < 15 ? 100 : 50;
+
+                        $amount = $gradeFee->amount;
+                        if ($feeType->type === 'monthly' && $proratePercentage === 50) {
+                            $amount = $gradeFee->amount * 0.5;
+                        }
+
+                        try {
+                            StudentFee::create([
+                                'student_id' => $student->id,
+                                'fee_type_id' => $feeType->id,
+                                'academic_year' => $academicYear,
+                                'month' => $month,
+                                'amount' => $amount,
+                                'is_custom' => false,
+                                'is_active' => true,
+                                'is_inherited' => true,
+                                'inherited_from_grade_fee_id' => $gradeFee->id,
+                                'prorate_percentage' => $proratePercentage,
+                                'status' => 'pending',
+                                'effective_from' => $gradeFee->effective_from,
+                                'effective_to' => $gradeFee->effective_to,
+                            ]);
+                            $assignedCount++;
+                        } catch (\Exception $e) {
+                            // Skip duplicate or error
+                        }
+                    }
+                }
+            }
+        }
+
+        return $assignedCount;
     }
 
     public function updateBatch(Request $request): JsonResponse

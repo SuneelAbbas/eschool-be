@@ -209,6 +209,7 @@ class StudentFeeController extends Controller
                 'fee_type_code' => $fee->feeType?->code,
                 'fee_type_type' => $fee->feeType?->type,
                 'academic_year' => $fee->academic_year,
+                'month' => $fee->month,
                 'amount' => $feeAmount,
                 'paid' => $paidAmount,
                 'balance' => $feeAmount - $paidAmount,

@@ -9,6 +9,7 @@ use App\Models\Student;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class AttendanceController extends Controller
 {
@@ -273,6 +274,56 @@ class AttendanceController extends Controller
             'data' => $result,
             'date' => $date,
             'section_id' => $sectionId,
+        ]);
+    }
+
+    public function studentAttendanceSummary(Request $request, int $studentId): JsonResponse
+    {
+        $user = $request->user();
+        $month = $request->input('month', now()->format('m'));
+        $year = $request->input('year', now()->format('Y'));
+
+        $student = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->find($studentId);
+
+        if (!$student) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Student not found',
+            ], 404);
+        }
+
+        $fromDate = "{$year}-{$month}-01";
+        $toDate = Carbon::createFromDate($year, $month)->endOfMonth()->format('Y-m-d');
+
+        $stats = Attendance::where('student_id', $studentId)
+            ->whereBetween('date', [$fromDate, $toDate])
+            ->selectRaw('status, COUNT(*) as count')
+            ->groupBy('status')
+            ->pluck('count', 'status');
+
+        $total = $stats->sum();
+        $present = $stats->get('present', 0);
+        $absent = $stats->get('absent', 0);
+        $late = $stats->get('late', 0);
+        $excused = $stats->get('excused', 0);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'student_id' => $studentId,
+                'student_name' => $student->first_name . ' ' . $student->last_name,
+                'month' => (int) $month,
+                'year' => (int) $year,
+                'present' => $present,
+                'absent' => $absent,
+                'late' => $late,
+                'excused' => $excused,
+                'total_days' => $total,
+                'present_percentage' => $total > 0 ? round(($present / $total) * 100, 1) : 0,
+                'absent_percentage' => $total > 0 ? round(($absent / $total) * 100, 1) : 0,
+            ],
         ]);
     }
 }

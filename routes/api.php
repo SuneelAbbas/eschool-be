@@ -82,6 +82,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/attendance', [AttendanceController::class, 'store']);
         Route::get('/attendance/report', [AttendanceController::class, 'report']);
         Route::get('/attendance/section', [AttendanceController::class, 'sectionAttendance']);
+        Route::get('/students/{studentId}/attendance-summary', [AttendanceController::class, 'studentAttendanceSummary']);
         Route::get('/attendance/{id}', [AttendanceController::class, 'show']);
         Route::put('/attendance/{id}', [AttendanceController::class, 'update']);
         Route::delete('/attendance/{id}', [AttendanceController::class, 'destroy']);
@@ -149,6 +150,7 @@ Route::get('/grade-fees', [GradeFeeController::class, 'index']);
         Route::get('/fee-payments/defaulters', [FeePaymentController::class, 'defaulters']);
         Route::get('/fee-payments/{id}', [FeePaymentController::class, 'show']);
         Route::get('/fee-payments/{id}/receipt', [FeePaymentController::class, 'receipt']);
+        Route::get('/students/{studentId}/payments', [FeePaymentController::class, 'studentPayments']);
         Route::delete('/fee-payments/{id}', [FeePaymentController::class, 'destroy']);
 
         Route::get('/bank-accounts', [BankAccountController::class, 'index']);
