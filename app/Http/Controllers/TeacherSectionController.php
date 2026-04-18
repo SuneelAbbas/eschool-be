@@ -79,10 +79,16 @@ class TeacherSectionController extends Controller
 
         DB::beginTransaction();
         try {
+            $previousClassTeacher = null;
             if (!empty($data['is_class_teacher'])) {
-                TeacherSection::where('section_id', $data['section_id'])
+                $prev = TeacherSection::where('section_id', $data['section_id'])
                     ->where('is_class_teacher', true)
-                    ->update(['is_class_teacher' => false]);
+                    ->first();
+                
+                if ($prev) {
+                    $previousClassTeacher = $prev->teacher->first_name . ' ' . $prev->teacher->last_name ?? 'Another teacher';
+                    $prev->update(['is_class_teacher' => false]);
+                }
 
                 $section->update(['class_teacher' => $teacher->first_name . ' ' . $teacher->last_name]);
             }
@@ -105,7 +111,9 @@ class TeacherSectionController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Teacher assigned to section successfully',
+            'message' => $previousClassTeacher 
+                ? "Teacher assigned as class teacher. {$previousClassTeacher} removed from class teacher role."
+                : 'Teacher assigned to section successfully',
             'data' => new TeacherSectionResource($assignment->load(['teacher', 'section.grade', 'subject'])),
         ], 201);
     }

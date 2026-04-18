@@ -49,4 +49,9 @@ class Teacher extends Model
         return $this->belongsToMany(Section::class, 'teacher_section')
             ->withPivot('subject_id', 'is_class_teacher');
     }
+
+    public function teacherSections(): HasMany
+    {
+        return $this->hasMany(TeacherSection::class);
+    }
 }
