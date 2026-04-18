@@ -57,7 +57,7 @@ class StudentController extends Controller
             });
         }
 
-        if ($sectionId) {
+if ($sectionId) {
             $query->where('section_id', $sectionId);
         }
 
@@ -377,21 +377,30 @@ class StudentController extends Controller
                 ];
             });
 
-        // Get attendance summary
-        $fromDate = "{$year}-{$month}-01";
-        $toDate = \Carbon\Carbon::createFromDate($year, $month)->endOfMonth()->format('Y-m-d');
-
-        $stats = \App\Models\Attendance::where('student_id', $id)
-            ->whereBetween('date', [$fromDate, $toDate])
-            ->selectRaw('status, COUNT(*) as count')
-            ->groupBy('status')
-            ->pluck('count', 'status');
-
-        $total = $stats->sum();
-        $present = $stats->get('present', 0);
-        $absent = $stats->get('absent', 0);
-        $late = $stats->get('late', 0);
-        $excused = $stats->get('excused', 0);
+        try {
+            // Get attendance summary - simplified direct approach
+            $monthInt = (int) $month;
+            $yearInt = (int) $year;
+            $fromDate = $yearInt . '-' . str_pad($monthInt, 2, '0', STR_PAD_LEFT) . '-01';
+            $toDate = \Carbon\Carbon::createFromDate($yearInt, $monthInt)->endOfMonth()->format('Y-m-d');
+            
+            $records = \DB::table('attendance')
+                ->where('student_id', $id)
+                ->whereBetween('date', [$fromDate, $toDate])
+                ->get();
+            
+            $present = 0; $absent = 0; $late = 0; $excused = 0;
+            foreach ($records as $r) {
+                if ($r->status === 'present') $present++;
+                elseif ($r->status === 'absent') $absent++;
+                elseif ($r->status === 'late') $late++;
+                elseif ($r->status === 'excused') $excused++;
+            }
+            $total = $records->count();
+        } catch (\Exception $e) {
+            \Log::error("Attendance error: " . $e->getMessage());
+            $present = 0; $absent = 0; $late = 0; $excused = 0; $total = 0;
+        }
 
         return response()->json([
             'success' => true,

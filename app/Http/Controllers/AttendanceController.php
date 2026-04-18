@@ -234,6 +234,8 @@ class AttendanceController extends Controller
         $user = $request->user();
         $sectionId = $request->input('section_id');
         $date = $request->input('date', now()->format('Y-m-d'));
+        $perPage = $request->input('per_page', 50);
+        $search = $request->input('search');
 
         if (!$sectionId) {
             return response()->json([
@@ -244,17 +246,24 @@ class AttendanceController extends Controller
 
         $instituteId = $user->isSuperAdmin() ? ($request->input('institute_id') ?? null) : $user->institute_id;
 
-        $students = Student::where('section_id', $sectionId)
+        $query = Student::where('section_id', $sectionId)
             ->when($instituteId, function ($query) use ($instituteId) {
                 return $query->where('institute_id', $instituteId);
-            })
-            ->with(['attendance' => function ($query) use ($date) {
-                $query->whereDate('date', $date);
-            }])
-            ->orderBy('roll_no')
-            ->get();
+            });
 
-        $result = $students->map(function ($student) {
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('roll_no', 'like', "%{$search}%");
+            });
+        }
+
+        $students = $query->with(['attendance' => function ($q) use ($date) {
+            $q->whereDate('date', $date);
+        }])->orderBy('roll_no')->paginate($perPage);
+
+        $result = collect($students->items())->map(function ($student) {
             $attendance = $student->attendance->first();
             return [
                 'student_id' => $student->id,
@@ -272,8 +281,47 @@ class AttendanceController extends Controller
         return response()->json([
             'success' => true,
             'data' => $result,
+            'meta' => [
+                'current_page' => $students->currentPage(),
+                'last_page' => $students->lastPage(),
+                'per_page' => $students->perPage(),
+                'total' => $students->total(),
+            ],
             'date' => $date,
             'section_id' => $sectionId,
+        ]);
+    }
+
+    public function stats(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $sectionId = $request->input('section_id');
+        $date = $request->input('date', now()->format('Y-m-d'));
+
+        if (!$sectionId) {
+            return response()->json(['success' => false, 'message' => 'Section ID is required'], 400);
+        }
+
+        $instituteId = $user->isSuperAdmin() ? ($request->input('institute_id') ?? null) : $user->institute_id;
+
+        $students = Student::where('section_id', $sectionId)
+            ->when($instituteId, function ($q) use ($instituteId) { return $q->where('institute_id', $instituteId); })
+            ->with(['attendance' => function ($q) use ($date) { $q->whereDate('date', $date); }])
+            ->get();
+
+        $total = $students->count();
+        $present = $students->filter(fn($s) => $s->attendance->first()?->status === 'present')->count();
+        $absent = $students->filter(fn($s) => $s->attendance->first()?->status === 'absent')->count();
+        $late = $students->filter(fn($s) => $s->attendance->first()?->status === 'late')->count();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'total' => $total,
+                'present' => $present,
+                'absent' => $absent,
+                'late' => $late,
+            ],
         ]);
     }
 

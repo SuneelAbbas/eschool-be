@@ -13,14 +13,54 @@ class SubjectController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
+        $perPage = $request->input('per_page', 15);
+        $search = $request->input('search');
 
-        $subjects = Subject::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+        $query = Subject::when(!$user->isSuperAdmin(), function ($query) use ($user) {
             return $query->where('institute_id', $user->institute_id);
-        })->get();
+        });
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('code', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        $subjects = $query->orderBy('id', 'desc')->paginate($perPage);
 
         return response()->json([
             'success' => true,
-            'data' => SubjectResource::collection($subjects),
+            'data' => SubjectResource::collection($subjects->items()),
+            'meta' => [
+                'current_page' => $subjects->currentPage(),
+                'last_page' => $subjects->lastPage(),
+                'per_page' => $subjects->perPage(),
+                'total' => $subjects->total(),
+            ],
+        ]);
+    }
+
+    public function stats(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        
+        $baseQuery = Subject::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        });
+
+        $total = (clone $baseQuery)->count();
+        $withCode = (clone $baseQuery)->whereNotNull('code')->where('code', '!=', '')->count();
+        $withDescription = (clone $baseQuery)->whereNotNull('description')->where('description', '!=', '')->count();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'total' => $total,
+                'with_code' => $withCode,
+                'with_description' => $withDescription,
+            ],
         ]);
     }
 

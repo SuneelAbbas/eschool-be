@@ -60,6 +60,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('role:admin,teacher')->group(function () {
         Route::get('/teachers', [TeacherController::class, 'index']);
+        Route::get('/teachers/stats', [TeacherController::class, 'stats']);
         Route::post('/teachers', [TeacherController::class, 'store']);
         Route::get('/teachers/{id}', [TeacherController::class, 'show']);
         Route::put('/teachers/{id}', [TeacherController::class, 'update']);
@@ -84,6 +85,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/attendance', [AttendanceController::class, 'store']);
         Route::get('/attendance/report', [AttendanceController::class, 'report']);
         Route::get('/attendance/section', [AttendanceController::class, 'sectionAttendance']);
+        Route::get('/attendance/section/stats', [AttendanceController::class, 'stats']);
         Route::get('/students/{studentId}/attendance-summary', [AttendanceController::class, 'studentAttendanceSummary']);
         Route::get('/attendance/{id}', [AttendanceController::class, 'show']);
         Route::put('/attendance/{id}', [AttendanceController::class, 'update']);
@@ -92,6 +94,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('role:admin')->group(function () {
         Route::get('/subjects', [SubjectController::class, 'index']);
+        Route::get('/subjects/stats', [SubjectController::class, 'stats']);
         Route::post('/subjects', [SubjectController::class, 'store']);
         Route::get('/subjects/{id}', [SubjectController::class, 'show']);
         Route::put('/subjects/{id}', [SubjectController::class, 'update']);

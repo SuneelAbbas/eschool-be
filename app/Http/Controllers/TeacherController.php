@@ -15,6 +15,8 @@ class TeacherController extends Controller
         $user = $request->user();
         $perPage = $request->input('per_page', 15);
         $search = $request->input('search');
+        $gender = $request->input('gender');
+        $subject = $request->input('subject');
 
         $query = Teacher::when(!$user->isSuperAdmin(), function ($query) use ($user) {
             return $query->where('institute_id', $user->institute_id);
@@ -29,6 +31,14 @@ class TeacherController extends Controller
             });
         }
 
+        if ($gender) {
+            $query->where('gender', $gender);
+        }
+
+        if ($subject) {
+            $query->where('subject', 'like', "%{$subject}%");
+        }
+
         $teachers = $query->orderBy('id', 'desc')->paginate($perPage);
 
         return response()->json([
@@ -39,6 +49,28 @@ class TeacherController extends Controller
                 'last_page' => $teachers->lastPage(),
                 'per_page' => $teachers->perPage(),
                 'total' => $teachers->total(),
+            ],
+        ]);
+    }
+
+    public function stats(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        
+        $baseQuery = Teacher::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        });
+
+        $total = (clone $baseQuery)->count();
+        $male = (clone $baseQuery)->where('gender', 'male')->count();
+        $female = (clone $baseQuery)->where('gender', 'female')->count();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'total' => $total,
+                'male' => $male,
+                'female' => $female,
             ],
         ]);
     }
