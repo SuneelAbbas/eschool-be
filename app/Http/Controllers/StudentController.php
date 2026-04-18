@@ -252,6 +252,129 @@ class StudentController extends Controller
         ]);
     }
 
+    /**
+     * Get all dashboard data for a student in single call
+     */
+    public function dashboardData(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+        $month = $request->input('month', now()->format('n'));
+        $year = $request->input('year', now()->format('Y'));
+        
+        // Academic year runs June to June (e.g., Apr 2026 is in 2025-2026 session)
+        $currentMonth = now()->month;
+        if ($currentMonth >= 6) {
+            $defaultAcademicYear = now()->year . '-' . (now()->year + 1);
+        } else {
+            $defaultAcademicYear = (now()->year - 1) . '-' . now()->year;
+        }
+        $academicYear = $request->input('academic_year', $defaultAcademicYear);
+
+        $student = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->with('section.grade')->find($id);
+
+        if (!$student) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Student not found',
+            ], 404);
+        }
+
+        // Get fees with balance
+        $fees = StudentFee::with(['feeType', 'paymentRecords'])
+            ->where('student_id', $id)
+            ->where('academic_year', $academicYear)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $totalOwed = 0;
+        $totalPaid = 0;
+
+        $feesWithBalance = $fees->map(function ($fee) use (&$totalOwed, &$totalPaid) {
+            $feeAmount = (float) $fee->amount;
+            $paidAmount = (float) $fee->paymentRecords->sum('amount_applied');
+            
+            $totalOwed += $feeAmount;
+            $totalPaid += $paidAmount;
+
+            return [
+                'id' => $fee->id,
+                'fee_type_id' => $fee->fee_type_id,
+                'fee_type' => [
+                    'name' => $fee->feeType?->name,
+                    'code' => $fee->feeType?->code,
+                ],
+                'academic_year' => $fee->academic_year,
+                'month' => $fee->month,
+                'amount' => $feeAmount,
+                'paid' => $paidAmount,
+                'balance' => $feeAmount - $paidAmount,
+                'status' => $fee->status,
+            ];
+        });
+
+        // Get payments
+        $payments = FeePayment::with(['receiver'])
+            ->where('student_id', $id)
+            ->orderBy('payment_date', 'desc')
+            ->limit(20)
+            ->get()
+            ->map(function ($payment) {
+                return [
+                    'id' => $payment->id,
+                    'receipt_number' => $payment->receipt_number,
+                    'amount' => $payment->amount,
+                    'payment_date' => $payment->payment_date,
+                    'payment_method' => $payment->payment_method,
+                    'receiver' => $payment->receiver ? [
+                        'first_name' => $payment->receiver->first_name,
+                        'last_name' => $payment->receiver->last_name,
+                    ] : null,
+                ];
+            });
+
+        // Get attendance summary
+        $fromDate = "{$year}-{$month}-01";
+        $toDate = \Carbon\Carbon::createFromDate($year, $month)->endOfMonth()->format('Y-m-d');
+
+        $stats = \App\Models\Attendance::where('student_id', $id)
+            ->whereBetween('date', [$fromDate, $toDate])
+            ->selectRaw('status, COUNT(*) as count')
+            ->groupBy('status')
+            ->pluck('count', 'status');
+
+        $total = $stats->sum();
+        $present = $stats->get('present', 0);
+        $absent = $stats->get('absent', 0);
+        $late = $stats->get('late', 0);
+        $excused = $stats->get('excused', 0);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'student' => new StudentResource($student),
+                'fees' => [
+                    'fees' => $feesWithBalance,
+                    'summary' => [
+                        'total_owed' => $totalOwed,
+                        'total_paid' => $totalPaid,
+                        'balance' => $totalOwed - $totalPaid,
+                    ],
+                ],
+                'payments' => $payments,
+                'attendance' => [
+                    'present' => $present,
+                    'absent' => $absent,
+                    'late' => $late,
+                    'excused' => $excused,
+                    'total_days' => $total,
+                    'present_percentage' => $total > 0 ? round(($present / $total) * 100, 1) : 0,
+                ],
+            ],
+        ]);
+    }
+
     public function update(StudentRequest $request, int $id): JsonResponse
     {
         $user = $request->user();
