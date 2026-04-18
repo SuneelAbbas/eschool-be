@@ -2,134 +2,188 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\GradeSubjectRequest;
-use App\Http\Resources\GradeSubjectResource;
 use App\Models\GradeSubject;
-use Illuminate\Http\JsonResponse;
+use App\Models\Grade;
+use App\Models\Subject;
 use Illuminate\Http\Request;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
 
 class GradeSubjectController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $instituteId = $request->user()->institute_id;
+        $user = $request->user();
+        $instituteId = $user->isSuperAdmin() ? null : $user->institute_id;
 
-        $grades = \App\Models\Grade::where('institute_id', $instituteId)->get();
-
-        $summary = $grades->map(function ($grade) use ($instituteId) {
-            $count = GradeSubject::where('grade_id', $grade->id)
-                ->whereHas('subject', function ($q) use ($instituteId) {
+        $query = GradeSubject::with(['grade', 'subject'])
+            ->whereHas('grade', function ($q) use ($instituteId) {
+                if ($instituteId) {
                     $q->where('institute_id', $instituteId);
-                })
-                ->count();
+                }
+            });
 
-            return [
-                'grade_id' => $grade->id,
-                'grade_name' => $grade->name,
-                'subject_count' => $count,
-            ];
-        });
+        $gradeId = $request->grade_id;
+        if ($gradeId) {
+            $query->where('grade_id', $gradeId);
+        }
+
+        $subjectId = $request->subject_id;
+        if ($subjectId) {
+            $query->where('subject_id', $subjectId);
+        }
+
+        $gradeSubjects = $query->get();
 
         return response()->json([
             'success' => true,
-            'data' => $summary,
+            'data' => $gradeSubjects->map(function ($gs) {
+                return [
+                    'id' => $gs->id,
+                    'grade_id' => $gs->grade_id,
+                    'subject_id' => $gs->subject_id,
+                    'grade' => $gs->grade ? [
+                        'id' => $gs->grade->id,
+                        'name' => $gs->grade->name,
+                    ] : null,
+                    'subject' => $gs->subject ? [
+                        'id' => $gs->subject->id,
+                        'name' => $gs->subject->name,
+                        'code' => $gs->subject->code,
+                    ] : null,
+                    'created_at' => $gs->created_at,
+                    'updated_at' => $gs->updated_at,
+                ];
+            }),
         ]);
     }
 
-    public function store(GradeSubjectRequest $request): JsonResponse
+    public function store(Request $request): JsonResponse
     {
-        $data = $request->validated();
-        $instituteId = $request->user()->institute_id;
+        $user = $request->user();
+        $instituteId = $user->isSuperAdmin() ? null : $user->institute_id;
 
-        $grade = \App\Models\Grade::find($data['grade_id']);
-        $subject = \App\Models\Subject::find($data['subject_id']);
+        $validated = $request->validate([
+            'grade_id' => 'required|exists:grades,id',
+            'subject_ids' => 'required|array|min:1',
+            'subject_ids.*' => 'exists:subjects,id',
+        ]);
 
-        if (!$grade || $grade->institute_id !== $instituteId) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid grade for your institute.',
-            ], 422);
-        }
-
-        if (!$subject || $subject->institute_id !== $instituteId) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid subject for your institute.',
-            ], 422);
-        }
-
-        $existing = GradeSubject::where('grade_id', $data['grade_id'])
-            ->where('subject_id', $data['subject_id'])
+        // Verify grade belongs to user's institute
+        $grade = Grade::where('id', $validated['grade_id'])
+            ->when($instituteId, function ($q) use ($instituteId) {
+                $q->where('institute_id', $instituteId);
+            })
             ->first();
 
-        if ($existing) {
+        if (!$grade) {
             return response()->json([
                 'success' => false,
-                'message' => 'This subject is already linked to this grade.',
-            ], 422);
+                'message' => 'Grade not found',
+            ], 404);
         }
 
-        $gradeSubject = GradeSubject::create($data);
+        $created = [];
+        $skipped = [];
+
+        foreach ($validated['subject_ids'] as $subjectId) {
+            $exists = GradeSubject::where('grade_id', $validated['grade_id'])
+                ->where('subject_id', $subjectId)
+                ->exists();
+
+            if ($exists) {
+                $skipped[] = $subjectId;
+                continue;
+            }
+
+            $gs = GradeSubject::create([
+                'grade_id' => $validated['grade_id'],
+                'subject_id' => $subjectId,
+            ]);
+
+            $subject = Subject::find($subjectId);
+            $created[] = [
+                'id' => $gs->id,
+                'grade_id' => $gs->grade_id,
+                'subject_id' => $gs->subject_id,
+                'subject' => $subject ? ['id' => $subject->id, 'name' => $subject->name, 'code' => $subject->code] : null,
+            ];
+        }
+
+        $message = count($created) . ' subject(s) assigned to grade';
+        if (count($skipped) > 0) {
+            $message .= ', ' . count($skipped) . ' already assigned';
+        }
 
         return response()->json([
             'success' => true,
-            'data' => new GradeSubjectResource($gradeSubject->load(['grade', 'subject'])),
-            'message' => 'Subject linked to grade successfully.',
+            'message' => $message,
+            'data' => [
+                'created' => $created,
+                'skipped' => $skipped,
+            ],
         ], 201);
     }
 
-    public function show(GradeSubject $grade_subject): JsonResponse
+    public function destroy(Request $request, int $id): JsonResponse
     {
-        if ($grade_subject->grade->institute_id !== request()->user()->institute_id) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        $user = $request->user();
+        $instituteId = $user->isSuperAdmin() ? null : $user->institute_id;
+
+        $gradeSubject = GradeSubject::whereHas('grade', function ($q) use ($instituteId) {
+            if ($instituteId) {
+                $q->where('institute_id', $instituteId);
+            }
+        })->find($id);
+
+        if (!$gradeSubject) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Grade subject not found',
+            ], 404);
         }
+
+        $subjectName = $gradeSubject->subject?->name ?? 'Subject';
+        $gradeName = $gradeSubject->grade?->name ?? 'Grade';
+
+        $gradeSubject->delete();
 
         return response()->json([
             'success' => true,
-            'data' => new GradeSubjectResource($grade_subject->load(['grade', 'subject'])),
+            'message' => "$subjectName removed from $gradeName",
         ]);
     }
 
-    public function update(GradeSubjectRequest $request, GradeSubject $grade_subject): JsonResponse
+    public function getSubjectsForGrade(Request $request, int $gradeId): JsonResponse
     {
-        if ($grade_subject->grade->institute_id !== $request->user()->institute_id) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        $user = $request->user();
+        $instituteId = $user->isSuperAdmin() ? null : $user->institute_id;
+
+        $grade = Grade::where('id', $gradeId)
+            ->when($instituteId, function ($q) use ($instituteId) {
+                $q->where('institute_id', $instituteId);
+            })
+            ->first();
+
+        if (!$grade) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Grade not found',
+            ], 404);
         }
 
-        $grade_subject->update($request->validated());
-
-        return response()->json([
-            'success' => true,
-            'data' => new GradeSubjectResource($grade_subject->load(['grade', 'subject'])),
-            'message' => 'Grade subject updated successfully.',
-        ]);
-    }
-
-    public function destroy(GradeSubject $grade_subject): JsonResponse
-    {
-        if ($grade_subject->grade->institute_id !== request()->user()->institute_id) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
-        }
-
-        $grade_subject->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Subject unlinked from grade successfully.',
-        ]);
-    }
-
-    public function getByGrade(Request $request, $gradeId): JsonResponse
-    {
-        $gradeSubjects = GradeSubject::with(['grade', 'subject'])
-            ->where('grade_id', $gradeId)
-            ->orderBy('subject_id')
+        $gradeSubjects = GradeSubject::where('grade_id', $gradeId)
+            ->with('subject')
             ->get();
 
         return response()->json([
             'success' => true,
-            'data' => $gradeSubjects,
+            'data' => $gradeSubjects->map(function ($gs) {
+                return [
+                    'id' => $gs->subject->id,
+                    'name' => $gs->subject->name,
+                    'code' => $gs->subject->code,
+                ];
+            }),
         ]);
     }
 }

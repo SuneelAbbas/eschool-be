@@ -15,13 +15,6 @@ class GradeSubject extends Model
     protected $fillable = [
         'grade_id',
         'subject_id',
-        'is_compulsory',
-        'max_marks',
-    ];
-
-    protected $casts = [
-        'is_compulsory' => 'boolean',
-        'max_marks' => 'integer',
     ];
 
     public function grade(): BelongsTo

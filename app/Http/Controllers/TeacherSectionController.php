@@ -348,6 +348,18 @@ $section = Section::find($data['section_id']);
             return response()->json(['success' => false, 'message' => 'Section not found'], 404);
         }
 
+        // Check if subject is available for this grade
+        $gradeSubject = \App\Models\GradeSubject::where('grade_id', $section->grade_id)
+            ->where('subject_id', $data['subject_id'])
+            ->first();
+
+        if (!$gradeSubject) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Subject is not available for this grade. Please assign the subject to the grade in Grade Subjects page.',
+            ], 422);
+        }
+
         // Check if this teacher already has a subject assignment for this section
         $existingSubjectAssignment = TeacherSection::where('teacher_id', $data['teacher_id'])
             ->where('section_id', $data['section_id'])
@@ -361,12 +373,17 @@ $section = Section::find($data['section_id']);
             ], 422);
         }
 
-        // Check if section has a section head (from another teacher)
-        $existingClassTeacher = TeacherSection::where('section_id', $data['section_id'])
-            ->where('is_class_teacher', true)
-            ->first();
+        // Check if this subject is already being taught in this section by any teacher
+        $subjectAlreadyTaught = TeacherSection::where('section_id', $data['section_id'])
+            ->where('subject_id', $data['subject_id'])
+            ->exists();
 
-        $differentTeacher = $existingClassTeacher && $existingClassTeacher->teacher_id != $data['teacher_id'];
+        if ($subjectAlreadyTaught) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This subject is already being taught in this section by another teacher',
+            ], 422);
+        }
 
         DB::beginTransaction();
         try {

@@ -113,6 +113,12 @@ Route::middleware('auth:sanctum')->group(function () {
         // Separate endpoints for section head and subject assignment
         Route::post('/teacher-sections/section-head', [TeacherSectionController::class, 'assignSectionHead']);
         Route::post('/teacher-sections/subject', [TeacherSectionController::class, 'assignSubject']);
+
+        // Grade Subjects
+        Route::get('/grade-subjects', [GradeSubjectController::class, 'index']);
+        Route::post('/grade-subjects', [GradeSubjectController::class, 'store']);
+        Route::delete('/grade-subjects/{id}', [GradeSubjectController::class, 'destroy']);
+        Route::get('/grades/{gradeId}/subjects', [GradeSubjectController::class, 'getSubjectsForGrade']);
     });
 
     Route::middleware('role:admin,accountant')->group(function () {
@@ -176,16 +182,17 @@ Route::get('/grade-fees', [GradeFeeController::class, 'index']);
         Route::post('/exam-types', [ExamTypeController::class, 'store']);
         Route::get('/exam-types/{id}', [ExamTypeController::class, 'show']);
         Route::put('/exam-types/{id}', [ExamTypeController::class, 'update']);
-        Route::delete('/exam-types/{id}', [ExamTypeController::class, 'destroy']);
-
-        Route::get('/grade-subjects', [GradeSubjectController::class, 'index']);
-        Route::post('/grade-subjects', [GradeSubjectController::class, 'store']);
-        Route::get('/grade-subjects/{id}', [GradeSubjectController::class, 'show']);
-        Route::put('/grade-subjects/{id}', [GradeSubjectController::class, 'update']);
-        Route::delete('/grade-subjects/{id}', [GradeSubjectController::class, 'destroy']);
-        Route::get('/grades/{gradeId}/subjects', [GradeSubjectController::class, 'getByGrade']);
+Route::delete('/exam-types/{id}', [ExamTypeController::class, 'destroy']);
 
         Route::get('/exams', [ExamController::class, 'index']);
+        Route::post('/exams', [ExamController::class, 'store']);
+        Route::get('/exams/{id}', [ExamController::class, 'show']);
+        Route::put('/exams/{id}', [ExamController::class, 'update']);
+        Route::delete('/exams/{id}', [ExamController::class, 'destroy']);
+        Route::get('/exams/{id}/students', [ExamController::class, 'students']);
+        Route::post('/exams/{id}/subjects', [ExamController::class, 'addSubjects']);
+
+        // Grade Subjects
         Route::post('/exams', [ExamController::class, 'store']);
         Route::get('/exams/{id}', [ExamController::class, 'show']);
         Route::put('/exams/{id}', [ExamController::class, 'update']);
