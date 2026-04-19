@@ -30,6 +30,7 @@ class Student extends Model
         'institute_id',
         'user_id',
         'section_id',
+        'admission_date',
     ];
 
     protected $casts = [

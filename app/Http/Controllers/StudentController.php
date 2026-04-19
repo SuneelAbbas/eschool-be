@@ -187,6 +187,8 @@ class StudentController extends Controller
             $data['institute_id'] = $user->institute_id;
         }
 
+        $data['admission_date'] = $data['registration_date'];
+
         $student = Student::create($data);
 
         // Auto-assign grade fees to new student
@@ -506,7 +508,7 @@ class StudentController extends Controller
         }
 
         $data = $request->validated();
-        unset($data['institute_id']);
+        unset($data['institute_id'], $data['registration_date']);
 
         $student->update($data);
 

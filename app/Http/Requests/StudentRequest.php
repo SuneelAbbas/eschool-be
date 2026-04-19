@@ -23,7 +23,7 @@ class StudentRequest extends FormRequest
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255'],
-            'registration_date' => ['nullable', 'date'],
+            'registration_date' => ['required', 'date'],
             'registration_number' => [
                 'nullable',
                 'string',
@@ -56,11 +56,13 @@ class StudentRequest extends FormRequest
             'address' => ['nullable', 'string'],
             'upload' => ['nullable', 'string', 'max:255'],
             'institute_id' => ['nullable', 'integer', 'exists:institutes,id'],
+            'admission_date' => ['nullable', 'date'],
         ];
 
         if ($this->isMethod('PUT') || $this->isMethod('PATCH')) {
             $rules['first_name'] = ['nullable', 'string', 'max:255'];
             $rules['last_name'] = ['nullable', 'string', 'max:255'];
+            $rules['registration_date'] = ['nullable', 'date'];
             $rules['registration_number'] = [
                 'nullable',
                 'string',
