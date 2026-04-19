@@ -118,6 +118,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/grade-subjects', [GradeSubjectController::class, 'index']);
         Route::post('/grade-subjects', [GradeSubjectController::class, 'store']);
         Route::delete('/grade-subjects/{id}', [GradeSubjectController::class, 'destroy']);
+        Route::post('/grade-subjects/clear-grade', [GradeSubjectController::class, 'clearGrade']);
         Route::get('/grades/{gradeId}/subjects', [GradeSubjectController::class, 'getSubjectsForGrade']);
     });
 

@@ -34,6 +34,16 @@ class TeacherSectionController extends Controller
             $query->where('section_id', $request->section_id);
         }
 
+        if ($request->has('subject_id')) {
+            $query->where('subject_id', $request->subject_id);
+        }
+
+        if ($request->has('grade_id')) {
+            $query->whereHas('section', function ($q) use ($request) {
+                $q->where('grade_id', $request->grade_id);
+            });
+        }
+
         $assignments = $query->get();
 
         return response()->json([

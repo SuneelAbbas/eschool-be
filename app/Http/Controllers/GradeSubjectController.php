@@ -145,11 +145,85 @@ class GradeSubjectController extends Controller
         $subjectName = $gradeSubject->subject?->name ?? 'Subject';
         $gradeName = $gradeSubject->grade?->name ?? 'Grade';
 
+        // Check if any teachers are assigned to this subject in this grade
+        $teacherCount = \App\Models\TeacherSection::whereHas('section', function ($q) use ($gradeSubject) {
+            $q->where('grade_id', $gradeSubject->grade_id);
+        })
+        ->where('subject_id', $gradeSubject->subject_id)
+        ->where('is_class_teacher', false)
+        ->count();
+
+        if ($teacherCount > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => "Cannot remove: $teacherCount teacher(s) are assigned to $subjectName in $gradeName. Please unassign teachers first.",
+            ], 422);
+        }
+
         $gradeSubject->delete();
 
         return response()->json([
             'success' => true,
             'message' => "$subjectName removed from $gradeName",
+        ]);
+    }
+
+    public function clearGrade(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $instituteId = $user->isSuperAdmin() ? null : $user->institute_id;
+
+        $validated = $request->validate([
+            'grade_id' => 'required|exists:grades,id',
+        ]);
+
+        $grade = Grade::where('id', $validated['grade_id'])
+            ->when($instituteId, function ($q) use ($instituteId) {
+                $q->where('institute_id', $instituteId);
+            })
+            ->first();
+
+        if (!$grade) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Grade not found',
+            ], 404);
+        }
+
+        $gradeSubjects = GradeSubject::where('grade_id', $validated['grade_id'])->get();
+        
+        $deleted = [];
+        $kept = [];
+
+        foreach ($gradeSubjects as $gs) {
+            $teacherCount = \App\Models\TeacherSection::whereHas('section', function ($q) use ($gs) {
+                $q->where('grade_id', $gs->grade_id);
+            })
+            ->where('subject_id', $gs->subject_id)
+            ->where('is_class_teacher', false)
+            ->count();
+
+            if ($teacherCount > 0) {
+                $kept[] = [
+                    'id' => $gs->id,
+                    'subject_id' => $gs->subject_id,
+                    'subject_name' => $gs->subject?->name,
+                    'teacher_count' => $teacherCount,
+                ];
+            } else {
+                $deleted[] = $gs->id;
+                $gs->delete();
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Grade subjects cleared',
+            'data' => [
+                'deleted_count' => count($deleted),
+                'kept_count' => count($kept),
+                'kept_subjects' => $kept,
+            ],
         ]);
     }
 
