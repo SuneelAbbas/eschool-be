@@ -81,46 +81,79 @@ class StudentController extends Controller
 
         $students = $query->orderBy('id', 'desc')->paginate($perPage);
 
-        // Add fee summary if requested
+        // Add fee summary if requested (optimized with SQL aggregation)
         $feeSummaryData = null;
         if ($withFeeSummary) {
             $studentIds = collect($students->items())->pluck('id')->toArray();
             
-            $feeQuery = \App\Models\StudentFee::whereIn('student_id', $studentIds);
-            if ($academicYear) {
-                $feeQuery->where('academic_year', $academicYear);
-            }
-            if ($month) {
-                $feeQuery->where('month', $month);
-            }
-
-            $feeRecords = $feeQuery->with('paymentRecords')->get()->groupBy('student_id');
-
-            $feeSummaryData = [];
-            foreach ($studentIds as $studentId) {
-                $records = $feeRecords->get($studentId, collect());
-                $totalOwed = $records->sum('amount');
-                $totalPaid = $records->flatMap->paymentRecords->sum('amount_applied');
-                $balance = $totalOwed - $totalPaid;
-
-                $feeStatusCalc = 'clear';
-                if ($balance > 0) {
-                    $feeStatusCalc = 'pending';
-                    $oldestPending = $records->where('status', 'pending')->sortBy('created_at')->first();
-                    if ($oldestPending) {
-                        $daysOverdue = now()->diffInDays(\Carbon\Carbon::parse($oldestPending->created_at));
-                        if ($daysOverdue > 30) {
-                            $feeStatusCalc = 'defaulter';
-                        }
-                    }
+            if (!empty($studentIds)) {
+                $feeQuery = StudentFee::whereIn('student_id', $studentIds);
+                if ($academicYear) {
+                    $feeQuery->where('academic_year', $academicYear);
+                }
+                if ($month) {
+                    $feeQuery->where('month', $month);
                 }
 
-                $feeSummaryData[$studentId] = [
-                    'pending' => $totalOwed - $totalPaid,
-                    'paid' => $totalPaid,
-                    'balance' => $balance,
-                    'status' => $feeStatusCalc,
-                ];
+                // Get total owed per student - simple query
+                $owedPerStudent = $feeQuery
+                    ->select('student_id', DB::raw('SUM(amount) as total_owed'))
+                    ->groupBy('student_id')
+                    ->pluck('total_owed', 'student_id')
+                    ->toArray();
+
+                // Get paid via student_fee_payments table - join approach
+                $paidPerStudent = DB::table('student_fees as sf')
+                    ->join('student_fee_payments as sfp', 'sf.id', '=', 'sfp.student_fee_id')
+                    ->whereIn('sf.student_id', $studentIds)
+                    ->where(function ($q) use ($academicYear, $month) {
+                        if ($academicYear) {
+                            $q->where('sf.academic_year', $academicYear);
+                        }
+                        if ($month) {
+                            $q->where('sf.month', $month);
+                        }
+                    })
+                    ->groupBy('sf.student_id')
+                    ->select('sf.student_id', DB::raw('SUM(sfp.amount_applied) as total_paid'))
+                    ->pluck('total_paid', 'sf.student_id')
+                    ->toArray();
+
+                // Get oldest pending for defaulter status
+                $oldestPending = StudentFee::whereIn('student_id', $studentIds)
+                    ->where('status', 'pending')
+                    ->when($academicYear, fn($q) => $q->where('academic_year', $academicYear))
+                    ->when($month, fn($q) => $q->where('month', $month))
+                    ->select('student_id', 'created_at')
+                    ->get()
+                    ->groupBy('student_id')
+                    ->map(fn($records) => $records->sortBy('created_at')->first());
+
+                $feeSummaryData = [];
+                foreach ($studentIds as $studentId) {
+                    $totalOwed = floatval($owedPerStudent[$studentId] ?? 0);
+                    $totalPaidAmt = floatval($paidPerStudent[$studentId] ?? 0);
+                    $balance = $totalOwed - $totalPaidAmt;
+
+                    $feeStatusCalc = 'clear';
+                    if ($balance > 0) {
+                        $feeStatusCalc = 'pending';
+                        $oldest = $oldestPending->get($studentId);
+                        if ($oldest && $oldest->created_at) {
+                            $daysOverdue = now()->diffInDays(\Carbon\Carbon::parse($oldest->created_at));
+                            if ($daysOverdue > 30) {
+                                $feeStatusCalc = 'defaulter';
+                            }
+                        }
+                    }
+
+                    $feeSummaryData[$studentId] = [
+                        'pending' => $balance,
+                        'paid' => $totalPaidAmt,
+                        'balance' => $balance,
+                        'status' => $feeStatusCalc,
+                    ];
+                }
             }
         }
 
