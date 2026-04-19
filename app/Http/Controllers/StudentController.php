@@ -43,6 +43,10 @@ class StudentController extends Controller
         $gradeId = $request->input('grade_id');
         $gender = $request->input('gender');
         $status = $request->input('status');
+        $withFeeSummary = $request->input('with_fee_summary', false);
+        $academicYear = $request->input('academic_year');
+        $feeStatus = $request->input('fee_status');
+        $month = $request->input('month');
 
         $query = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
             return $query->where('institute_id', $user->institute_id);
@@ -57,7 +61,7 @@ class StudentController extends Controller
             });
         }
 
-if ($sectionId) {
+        if ($sectionId) {
             $query->where('section_id', $sectionId);
         }
 
@@ -77,9 +81,68 @@ if ($sectionId) {
 
         $students = $query->orderBy('id', 'desc')->paginate($perPage);
 
+        // Add fee summary if requested
+        $feeSummaryData = null;
+        if ($withFeeSummary) {
+            $studentIds = collect($students->items())->pluck('id')->toArray();
+            
+            $feeQuery = \App\Models\StudentFee::whereIn('student_id', $studentIds);
+            if ($academicYear) {
+                $feeQuery->where('academic_year', $academicYear);
+            }
+            if ($month) {
+                $feeQuery->where('month', $month);
+            }
+
+            $feeRecords = $feeQuery->with('paymentRecords')->get()->groupBy('student_id');
+
+            $feeSummaryData = [];
+            foreach ($studentIds as $studentId) {
+                $records = $feeRecords->get($studentId, collect());
+                $totalOwed = $records->sum('amount');
+                $totalPaid = $records->flatMap->paymentRecords->sum('amount_applied');
+                $balance = $totalOwed - $totalPaid;
+
+                $feeStatusCalc = 'clear';
+                if ($balance > 0) {
+                    $feeStatusCalc = 'pending';
+                    $oldestPending = $records->where('status', 'pending')->sortBy('created_at')->first();
+                    if ($oldestPending) {
+                        $daysOverdue = now()->diffInDays(\Carbon\Carbon::parse($oldestPending->created_at));
+                        if ($daysOverdue > 30) {
+                            $feeStatusCalc = 'defaulter';
+                        }
+                    }
+                }
+
+                $feeSummaryData[$studentId] = [
+                    'pending' => $totalOwed - $totalPaid,
+                    'paid' => $totalPaid,
+                    'balance' => $balance,
+                    'status' => $feeStatusCalc,
+                ];
+            }
+        }
+
+        $studentData = StudentResource::collection($students->items())->resolve();
+        
+        // Merge fee summary into response
+        if ($withFeeSummary && $feeSummaryData) {
+            $studentData = array_map(function ($student) use ($feeSummaryData) {
+                $studentId = $student['id'];
+                $student['fee_summary'] = $feeSummaryData[$studentId] ?? [
+                    'pending' => 0,
+                    'paid' => 0,
+                    'balance' => 0,
+                    'status' => 'clear',
+                ];
+                return $student;
+            }, $studentData);
+        }
+
         return response()->json([
             'success' => true,
-            'data' => StudentResource::collection($students->items()),
+            'data' => $studentData,
             'meta' => [
                 'current_page' => $students->currentPage(),
                 'last_page' => $students->lastPage(),
