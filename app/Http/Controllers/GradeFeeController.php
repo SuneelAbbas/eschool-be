@@ -106,6 +106,15 @@ class GradeFeeController extends Controller
             ], 404);
         }
 
+        $hasStudentFees = \App\Models\StudentFee::where('inherited_from_grade_fee_id', $id)->exists();
+
+        if ($hasStudentFees) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot delete: fee has been assigned to students. Clear student fees first.',
+            ], 422);
+        }
+
         $gradeFee->delete();
 
         return response()->json([
@@ -309,6 +318,21 @@ class GradeFeeController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'No IDs provided',
+            ], 422);
+        }
+
+        $idsWithStudentFees = \App\Models\StudentFee::whereIn('inherited_from_grade_fee_id', $ids)
+            ->distinct()
+            ->pluck('inherited_from_grade_fee_id')
+            ->toArray();
+
+        if (!empty($idsWithStudentFees)) {
+            $gradeFees = GradeFee::whereIn('id', $idsWithStudentFees)->get()->map(fn($gf) => $gf->feeType?->name ?? 'Unknown');
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot delete: following fees have been assigned to students. Clear student fees first: ' . $gradeFees->implode(', '),
+                'blocked_ids' => $idsWithStudentFees,
             ], 422);
         }
 
