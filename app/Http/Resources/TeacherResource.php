@@ -34,13 +34,15 @@ class TeacherResource extends JsonResource
                 ->take(2);
                 
             $subjectAssignments = $subjectSectionIds->map(function ($ts) {
-                if (!$ts->subject) return null;
+                // Use withoutGlobalScopes since eager loaded subject is null due to global scope
+                $subject = \App\Models\Subject::withoutGlobalScopes()->find($ts->subject_id);
+                if (!$subject) return null;
                 return [
                     'id' => $ts->id,
                     'subject_id' => $ts->subject_id,
                     'subject' => [
-                        'id' => $ts->subject->id,
-                        'name' => $ts->subject->name,
+                        'id' => $subject->id,
+                        'name' => $subject->name,
                     ],
                     'section' => $ts->section ? [
                         'id' => $ts->section->id,
