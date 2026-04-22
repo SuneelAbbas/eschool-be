@@ -15,7 +15,11 @@ class GradeSubjectController extends Controller
         $user = $request->user();
         $instituteId = $user->isSuperAdmin() ? null : $user->institute_id;
 
-        $query = GradeSubject::with(['grade', 'subject'])
+        // Get all grades for the institute
+        $grades = Grade::where('institute_id', $instituteId)->get();
+
+        // Get all grade-subjects mappings
+        $gradeSubjectsQuery = GradeSubject::with(['grade', 'subject'])
             ->whereHas('grade', function ($q) use ($instituteId) {
                 if ($instituteId) {
                     $q->where('institute_id', $instituteId);
@@ -24,15 +28,39 @@ class GradeSubjectController extends Controller
 
         $gradeId = $request->grade_id;
         if ($gradeId) {
-            $query->where('grade_id', $gradeId);
+            $gradeSubjectsQuery->where('grade_id', $gradeId);
         }
 
         $subjectId = $request->subject_id;
         if ($subjectId) {
-            $query->where('subject_id', $subjectId);
+            $gradeSubjectsQuery->where('subject_id', $subjectId);
         }
 
-        $gradeSubjects = $query->get();
+        $gradeSubjects = $gradeSubjectsQuery->get();
+
+        // Build grade-subject mappings for FE
+        // If no mappings exist, create empty mappings for all grades (so FE can show grades)
+        if ($gradeSubjects->isEmpty() && !$gradeId && !$subjectId) {
+            $emptyMappings = $grades->map(function ($grade) {
+                return [
+                    'id' => 0,
+                    'grade_id' => $grade->id,
+                    'subject_id' => 0,
+                    'grade' => [
+                        'id' => $grade->id,
+                        'name' => $grade->name,
+                    ],
+                    'subject' => null,
+                    'created_at' => null,
+                    'updated_at' => null,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $emptyMappings->values()->all(),
+            ]);
+        }
 
         return response()->json([
             'success' => true,
