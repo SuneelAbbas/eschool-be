@@ -10,7 +10,10 @@ class TeacherResource extends JsonResource
     public function toArray(Request $request): array
     {
         $classTeacherSection = null;
+        $subjectAssignments = [];
+        
         if ($this->relationLoaded('teacherSections')) {
+            // Section head
             $ct = $this->teacherSections->where('is_class_teacher', true)->first();
             if ($ct && $ct->section) {
                 $classTeacherSection = [
@@ -22,6 +25,33 @@ class TeacherResource extends JsonResource
                     ] : null,
                 ];
             }
+            
+            // Subject assignments (most recent first, exclude class teacher)
+            $subjectSectionIds = $this->teacherSections
+                ->where('is_class_teacher', false)
+                ->whereNotNull('subject_id')
+                ->sortByDesc('created_at')
+                ->take(2);
+                
+            $subjectAssignments = $subjectSectionIds->map(function ($ts) {
+                if (!$ts->subject) return null;
+                return [
+                    'id' => $ts->id,
+                    'subject_id' => $ts->subject_id,
+                    'subject' => [
+                        'id' => $ts->subject->id,
+                        'name' => $ts->subject->name,
+                    ],
+                    'section' => $ts->section ? [
+                        'id' => $ts->section->id,
+                        'name' => $ts->section->name,
+                        'grade' => $ts->section->grade ? [
+                            'id' => $ts->section->grade->id,
+                            'name' => $ts->section->grade->name,
+                        ] : null,
+                    ] : null,
+                ];
+            })->filter()->values();
         }
 
         return [
@@ -42,6 +72,7 @@ class TeacherResource extends JsonResource
             'institute_id' => $this->institute_id,
             'sections' => $this->whenLoaded('sections'),
             'section_head' => $classTeacherSection,
+            'subjects' => $subjectAssignments,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

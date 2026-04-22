@@ -21,7 +21,7 @@ class TeacherController extends Controller
 
         $query = Teacher::when(!$user->isSuperAdmin(), function ($query) use ($user) {
             return $query->where('institute_id', $user->institute_id);
-        })->with('teacherSections.section.grade');
+        })->with(['teacherSections.section.grade', 'teacherSections.subject']);
 
         if ($search) {
             $query->where(function ($q) use ($search) {
