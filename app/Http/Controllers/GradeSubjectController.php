@@ -38,33 +38,14 @@ class GradeSubjectController extends Controller
 
         $gradeSubjects = $gradeSubjectsQuery->get();
 
-        // Build grade-subject mappings for FE
-        // If no mappings exist, create empty mappings for all grades (so FE can show grades)
-        if ($gradeSubjects->isEmpty() && !$gradeId && !$subjectId) {
-            $emptyMappings = $grades->map(function ($grade) {
-                return [
-                    'id' => 0,
-                    'grade_id' => $grade->id,
-                    'subject_id' => 0,
-                    'grade' => [
-                        'id' => $grade->id,
-                        'name' => $grade->name,
-                    ],
-                    'subject' => null,
-                    'created_at' => null,
-                    'updated_at' => null,
-                ];
-            });
+        // Get existing grade_ids from mappings
+        $mappedGradeIds = $gradeSubjects->pluck('grade_id')->unique()->toArray();
 
-            return response()->json([
-                'success' => true,
-                'data' => $emptyMappings->values()->all(),
-            ]);
-        }
+        // Build response: include all grades (with subjects if mapped, empty array if not)
+        $responseData = [];
 
-        return response()->json([
-            'success' => true,
-            'data' => $gradeSubjects->map(function ($gs) {
+        foreach ($grades as $grade) {
+            $gradeMappings = $gradeSubjects->where('grade_id', $grade->id)->map(function ($gs) {
                 return [
                     'id' => $gs->id,
                     'grade_id' => $gs->grade_id,
@@ -81,7 +62,21 @@ class GradeSubjectController extends Controller
                     'created_at' => $gs->created_at,
                     'updated_at' => $gs->updated_at,
                 ];
-            }),
+            })->values()->all();
+
+            $responseData[] = [
+                'grade_id' => $grade->id,
+                'grade' => [
+                    'id' => $grade->id,
+                    'name' => $grade->name,
+                ],
+                'subjects' => $gradeMappings,
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $responseData,
         ]);
     }
 
