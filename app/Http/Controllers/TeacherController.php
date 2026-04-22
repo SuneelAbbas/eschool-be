@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\TeacherRequest;
 use App\Http\Resources\TeacherResource;
 use App\Models\Teacher;
+use App\Models\Subject;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -56,6 +57,7 @@ class TeacherController extends Controller
     public function stats(Request $request): JsonResponse
     {
         $user = $request->user();
+        $instituteId = $user->isSuperAdmin() ? null : $user->institute_id;
         
         $baseQuery = Teacher::when(!$user->isSuperAdmin(), function ($query) use ($user) {
             return $query->where('institute_id', $user->institute_id);
@@ -65,12 +67,30 @@ class TeacherController extends Controller
         $male = (clone $baseQuery)->where('gender', 'male')->count();
         $female = (clone $baseQuery)->where('gender', 'female')->count();
 
+        // Get subjects for filter dropdown (only those assigned to teachers)
+        $subjects = Subject::when($instituteId, fn($q) => $q->where('institute_id', $instituteId))
+            ->orderBy('name')
+            ->get(['id', 'name', 'code']);
+
+        // Get all sections with grades
+        $sections = \App\Models\Section::with('grade')
+            ->when($instituteId, fn($q) => $q->where('institute_id', $instituteId))
+            ->orderBy('name')
+            ->get(['id', 'name', 'grade_id']);
+
         return response()->json([
             'success' => true,
             'data' => [
                 'total' => $total,
                 'male' => $male,
                 'female' => $female,
+                'subjects' => $subjects,
+                'sections' => $sections->map(fn($s) => [
+                    'id' => $s->id,
+                    'name' => $s->name,
+                    'grade_id' => $s->grade_id,
+                    'grade' => $s->grade ? ['id' => $s->grade->id, 'name' => $s->grade->name] : null,
+                ])->values(),
             ],
         ]);
     }
