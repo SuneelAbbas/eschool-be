@@ -347,12 +347,11 @@ class StudentController extends Controller
 
     /**
      * Calculate prorate percentage based on admission day
-     * Before 15th = 100%, 15th or after = 50%
+     * Always 100% - no mid-month discount
      */
     private function calculateProratePercentage(string $date): float
     {
-        $day = (int) date('j', strtotime($date));
-        return $day < 15 ? 100.00 : 50.00;
+        return 100.00;
     }
 
     /**

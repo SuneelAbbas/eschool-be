@@ -228,16 +228,10 @@ class GradeFeeController extends Controller
                             continue;
                         }
 
-                        // Get admission day for prorating
-                        $admissionDay = $student->admission_date 
-                            ? \Carbon\Carbon::parse($student->admission_date)->day 
-                            : 1;
-                        $proratePercentage = $admissionDay < 15 ? 100 : 50;
+                        // Always assign full fee (100%) - no mid-month discount
+                        $proratePercentage = 100;
 
                         $amount = $gradeFee->amount;
-                        if ($feeType->type === 'monthly' && $proratePercentage === 50) {
-                            $amount = $gradeFee->amount * 0.5;
-                        }
 
                         try {
                             StudentFee::create([
