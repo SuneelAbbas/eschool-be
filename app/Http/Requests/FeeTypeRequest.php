@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use App\Models\FeeType;
 
 class FeeTypeRequest extends FormRequest
 {
@@ -14,7 +15,19 @@ class FeeTypeRequest extends FormRequest
 
     public function rules(): array
     {
-        $instituteId = $this->input('institute_id') ?? $this->user()?->institute_id;
+        // For PUT/PATCH, get institute_id from existing record in DB
+        // For POST, use request input or current user's institute
+        $instituteId = null;
+        
+        if ($this->isMethod('PUT') || $this->isMethod('PATCH')) {
+            $feeType = FeeType::find($this->route('id'));
+            $instituteId = $feeType?->institute_id;
+        }
+        
+        // Fall back to request input or user's institute only for new records
+        if (!$instituteId) {
+            $instituteId = $this->input('institute_id') ?? $this->user()?->institute_id;
+        }
 
         $rules = [
             'name' => [
