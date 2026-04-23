@@ -46,7 +46,7 @@ class FeeTypeRequest extends FormRequest
                     return $query->where('institute_id', $instituteId);
                 }),
             ],
-            'amount' => ['required', 'numeric', 'min:0'],
+            'amount' => ['required', 'numeric', 'min:0', 'regex:/^\d+$|^\d+\.\d{1,2}$/'],
             'type' => ['required', Rule::in(['monthly', 'one_time'])],
             'due_day' => ['nullable', 'integer', 'min:1', 'max:28'],
             'description' => ['nullable', 'string'],
