@@ -166,6 +166,7 @@ Route::get('/grade-fees', [GradeFeeController::class, 'index']);
         Route::get('/fee-payments', [FeePaymentController::class, 'index']);
         Route::post('/fee-payments', [FeePaymentController::class, 'store']);
         Route::get('/fee-payments/defaulters', [FeePaymentController::class, 'defaulters']);
+        Route::get('/fee-payments/bulk-receipts', [FeePaymentController::class, 'bulkReceipts']);
         Route::get('/fee-payments/{id}', [FeePaymentController::class, 'show']);
         Route::get('/fee-payments/{id}/receipt', [FeePaymentController::class, 'receipt']);
         Route::get('/students/{studentId}/payments', [FeePaymentController::class, 'studentPayments']);

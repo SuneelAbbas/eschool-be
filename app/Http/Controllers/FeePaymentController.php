@@ -319,4 +319,96 @@ class FeePaymentController extends Controller
             ],
         ]);
     }
+
+    public function bulkReceipts(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $gradeId = $request->input('grade_id');
+        $month = $request->input('month');
+        $academicYear = $request->input('academic_year');
+
+        if (!$gradeId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Grade ID is required',
+            ], 422);
+        }
+
+        $query = FeePayment::with([
+            'student',
+            'student.section.grade',
+            'receiver',
+            'paymentRecords.studentFee.feeType',
+            'bankAccount',
+        ]);
+
+        if (!$user->isSuperAdmin()) {
+            $query->whereHas('student', function ($q) use ($user) {
+                $q->where('institute_id', $user->institute_id);
+            });
+        }
+
+        if ($gradeId) {
+            $query->whereHas('student.section.grade', function ($q) use ($gradeId) {
+                $q->where('id', $gradeId);
+            });
+        }
+
+        if ($month) {
+            $query->where('month', $month);
+        }
+
+        if ($academicYear) {
+            $query->where('academic_year', $academicYear);
+        }
+
+        $payments = $query->orderBy('payment_date', 'desc')->get();
+
+        // Format receipts for each payment
+        $receipts = $payments->map(function ($payment) {
+            return [
+                'id' => $payment->id,
+                'receipt_number' => $payment->receipt_number,
+                'barcode_value' => $payment->barcode_value,
+                'payment_date' => $payment->payment_date->format('d-M-Y'),
+                'payment_date_raw' => $payment->payment_date->toDateString(),
+                'bank_reference' => $payment->bank_reference,
+                'payment_method' => ucfirst(str_replace('_', ' ', $payment->payment_method)),
+                'amount' => (float) $payment->amount,
+                'amount_in_words' => $this->numberToWords($payment->amount),
+                'student' => [
+                    'id' => $payment->student->id,
+                    'name' => $payment->student->first_name . ' ' . $payment->student->last_name,
+                    'registration_number' => $payment->student->registration_number,
+                    'grade' => $payment->student->section->grade->name ?? 'N/A',
+                    'section' => $payment->student->section->name ?? 'N/A',
+                    'father_name' => $payment->student->parents_name ?? 'N/A',
+                ],
+                'institute' => [
+                    'name' => $payment->student->institute->name,
+                    'logo' => $payment->student->institute->logo,
+                    'address' => $payment->student->institute->address,
+                    'phone' => $payment->student->institute->contact_phone,
+                    'email' => $payment->student->institute->contact_email,
+                ],
+                'bank_account' => $payment->bankAccount ? [
+                    'bank_name' => $payment->bankAccount->bank_name,
+                    'account_title' => $payment->bankAccount->account_title,
+                    'account_number' => $payment->bankAccount->account_number,
+                    'branch_code' => $payment->bankAccount->branch_code,
+                ] : null,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $receipts,
+            'meta' => [
+                'total' => $payments->count(),
+                'grade_id' => $gradeId,
+                'month' => $month,
+                'academic_year' => $academicYear,
+            ],
+        ]);
+    }
 }
