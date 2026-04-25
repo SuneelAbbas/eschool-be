@@ -121,9 +121,6 @@ class PendingReceiptController extends Controller
         $search = $request->input('search');
 
         $query = PendingReceipt::with(['student', 'student.section.grade', 'paidByUser'])
-            ->whereHas('student', function ($q) use ($user) {
-                $q->where('institute_id', $user->institute_id);
-            })
             ->when($gradeId, fn($q) => $q->whereHas('student.section.grade', fn($q) => $q->where('id', $gradeId)))
             ->when($status, fn($q) => $q->where('status', $status))
             ->when($search, fn($q) => $q->where('transaction_id', 'like', "%{$search}%")
@@ -150,9 +147,6 @@ class PendingReceiptController extends Controller
         $user = request()->user();
         
         $pendingReceipt = PendingReceipt::with(['student', 'student.section.grade', 'paidByUser'])
-            ->whereHas('student', function ($q) use ($user) {
-                $q->where('institute_id', $user->institute_id);
-            })
             ->find((int) $id);
 
         if (!$pendingReceipt) {
@@ -191,6 +185,7 @@ class PendingReceiptController extends Controller
 
 public function recordPayment(Request $request, $id): JsonResponse
     {
+        $user = $request->user();
         $pendingReceipt = PendingReceipt::with('student')->find((int) $id);
 
         if (!$pendingReceipt) {
@@ -262,48 +257,58 @@ public function recordPayment(Request $request, $id): JsonResponse
 
     public function getReceiptsForPrint(Request $request): JsonResponse
     {
-        $user = $request->user();
-        $gradeId = $request->input('grade_id');
-        $status = $request->input('status', 'pending');
+        try {
+            $user = $request->user();
+            $gradeId = $request->input('grade_id');
+            $status = $request->input('status', 'pending');
 
-        $query = PendingReceipt::with(['student', 'student.section.grade', 'paidByUser'])
-            ->whereHas('student', fn($q) => $q->where('institute_id', $user->institute_id))
-            ->when($gradeId, fn($q) => $q->whereHas('student.section.grade', fn($q) => $q->where('id', $gradeId)))
-            ->where('status', $status);
+            $receipts = PendingReceipt::with(['student', 'student.section.grade', 'paidByUser'])
+                ->where('status', $status)
+                ->when($gradeId, fn($q) => $q->whereHas('student.section', fn($q) => $q->where('grade_id', $gradeId)))
+                ->orderBy('transaction_id')
+                ->get();
 
-        $receipts = $query->orderBy('transaction_id')->get();
+            $formattedReceipts = $receipts->map(function ($receipt) {
+                return [
+                    'id' => $receipt->id,
+                    'transaction_id' => $receipt->transaction_id,
+                    'due_date' => $receipt->due_date,
+                    'amount' => (float) $receipt->amount,
+                    'status' => $receipt->status,
+                    'fee_breakdown' => json_decode($receipt->fee_breakdown),
+                    'student' => [
+                        'id' => $receipt->student->id,
+                        'name' => $receipt->student->first_name . ' ' . $receipt->student->last_name,
+                        'registration_number' => $receipt->student->registration_number,
+                        'grade' => $receipt->student->section->grade->name ?? 'N/A',
+                        'section' => $receipt->student->section->name ?? 'N/A',
+                        'father_name' => $receipt->student->parents_name ?? 'N/A',
+                    ],
+                    'institute' => [
+                        'name' => $receipt->student->institute->name,
+                        'logo' => $receipt->student->institute->logo,
+                        'address' => $receipt->student->institute->address,
+                    ],
+                ];
+            });
 
-        $formattedReceipts = $receipts->map(function ($receipt) {
-            return [
-                'id' => $receipt->id,
-                'transaction_id' => $receipt->transaction_id,
-                'due_date' => $receipt->due_date,
-                'amount' => (float) $receipt->amount,
-                'status' => $receipt->status,
-                'fee_breakdown' => json_decode($receipt->fee_breakdown),
-                'student' => [
-                    'id' => $receipt->student->id,
-                    'name' => $receipt->student->first_name . ' ' . $receipt->student->last_name,
-                    'registration_number' => $receipt->student->registration_number,
-                    'grade' => $receipt->student->section->grade->name ?? 'N/A',
-                    'section' => $receipt->student->section->name ?? 'N/A',
-                    'father_name' => $receipt->student->parents_name ?? 'N/A',
+            return response()->json([
+                'success' => true,
+                'data' => $formattedReceipts,
+                'meta' => [
+                    'total' => $receipts->count(),
+                    'status' => $status,
                 ],
-                'institute' => [
-                    'name' => $receipt->student->institute->name,
-                    'logo' => $receipt->student->institute->logo,
-                    'address' => $receipt->student->institute->address,
-                ],
-            ];
-        });
-
-        return response()->json([
-            'success' => true,
-            'data' => $formattedReceipts,
-            'meta' => [
-                'total' => $receipts->count(),
-                'status' => $status,
-            ],
-        ]);
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('getReceiptsForPrint error', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
     }
 }
