@@ -19,12 +19,13 @@ use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\ExamTypeController;
 use App\Http\Controllers\ExamController;
 use App\Http\Controllers\ExamResultController;
-use App\Http\Controllers\ReportCardController;
 use App\Http\Controllers\ExamReportController;
 use App\Http\Controllers\GradeSubjectController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\PendingReceiptController;
+use App\Http\Controllers\ReportCardController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/institute-register', [AuthController::class, 'register']);
