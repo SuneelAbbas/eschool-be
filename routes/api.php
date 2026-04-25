@@ -174,6 +174,7 @@ Route::get('/grade-fees', [GradeFeeController::class, 'index']);
 
         // Pending Receipts
         Route::get('/pending-receipts', [PendingReceiptController::class, 'index']);
+        Route::get('/pending-receipts/{id}', [PendingReceiptController::class, 'show']);
         Route::post('/pending-receipts', [PendingReceiptController::class, 'generate']);
         Route::get('/pending-receipts/print', [PendingReceiptController::class, 'getReceiptsForPrint']);
         Route::post('/pending-receipts/search', [PendingReceiptController::class, 'searchByTransaction']);

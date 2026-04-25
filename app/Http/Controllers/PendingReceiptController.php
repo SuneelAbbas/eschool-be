@@ -145,6 +145,45 @@ class PendingReceiptController extends Controller
         ]);
     }
 
+    public function show(int $id): JsonResponse
+    {
+        $pendingReceipt = PendingReceipt::with(['student', 'student.section.grade', 'paidByUser'])
+            ->find($id);
+
+        if (!$pendingReceipt) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pending receipt not found',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id' => $pendingReceipt->id,
+                'transaction_id' => $pendingReceipt->transaction_id,
+                'due_date' => $pendingReceipt->due_date,
+                'amount' => (float) $pendingReceipt->amount,
+                'status' => $pendingReceipt->status,
+                'fee_breakdown' => json_decode($pendingReceipt->fee_breakdown),
+                'paid_at' => $pendingReceipt->paid_at,
+                'student' => [
+                    'id' => $pendingReceipt->student->id,
+                    'name' => $pendingReceipt->student->first_name . ' ' . $pendingReceipt->student->last_name,
+                    'registration_number' => $pendingReceipt->student->registration_number,
+                    'grade' => $pendingReceipt->student->section->grade->name ?? 'N/A',
+                    'section' => $pendingReceipt->student->section->name ?? 'N/A',
+                    'father_name' => $pendingReceipt->student->parents_name ?? 'N/A',
+                ],
+                'institute' => [
+                    'name' => $pendingReceipt->student->institute->name,
+                    'logo' => $pendingReceipt->student->institute->logo,
+                    'address' => $pendingReceipt->student->institute->address,
+                ],
+            ],
+        ]);
+    }
+
     public function recordPayment(Request $request, int $id): JsonResponse
     {
         $user = $request->user();
