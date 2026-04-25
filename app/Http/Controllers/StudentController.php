@@ -129,6 +129,18 @@ class StudentController extends Controller
                     ->groupBy('student_id')
                     ->map(fn($records) => $records->sortBy('created_at')->first());
 
+                // Get last payment ID per student
+                $lastPaymentIds = DB::table('fee_payments')
+                    ->whereIn('student_id', $studentIds)
+                    ->when($academicYear, fn($q) => $q->where('academic_year', $academicYear))
+                    ->when($month, fn($q) => $q->where('month', $month))
+                    ->orderBy('payment_date', 'desc')
+                    ->select('student_id', 'id')
+                    ->get()
+                    ->groupBy('student_id')
+                    ->map(fn($records) => $records->first()?->id)
+                    ->toArray();
+
                 $feeSummaryData = [];
                 foreach ($studentIds as $studentId) {
                     $totalOwed = floatval($owedPerStudent[$studentId] ?? 0);
@@ -152,6 +164,7 @@ class StudentController extends Controller
                         'paid' => $totalPaidAmt,
                         'balance' => $balance,
                         'status' => $feeStatusCalc,
+                        'last_payment_id' => $lastPaymentIds[$studentId] ?? null,
                     ];
                 }
             }
