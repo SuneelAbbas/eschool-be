@@ -147,7 +147,12 @@ class PendingReceiptController extends Controller
 
     public function show($id): JsonResponse
     {
+        $user = request()->user();
+        
         $pendingReceipt = PendingReceipt::with(['student', 'student.section.grade', 'paidByUser'])
+            ->whereHas('student', function ($q) use ($user) {
+                $q->where('institute_id', $user->institute_id);
+            })
             ->find((int) $id);
 
         if (!$pendingReceipt) {
