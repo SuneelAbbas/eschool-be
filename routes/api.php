@@ -172,6 +172,13 @@ Route::get('/grade-fees', [GradeFeeController::class, 'index']);
         Route::get('/students/{studentId}/payments', [FeePaymentController::class, 'studentPayments']);
         Route::delete('/fee-payments/{id}', [FeePaymentController::class, 'destroy']);
 
+        // Pending Receipts
+        Route::get('/pending-receipts', [PendingReceiptController::class, 'index']);
+        Route::post('/pending-receipts', [PendingReceiptController::class, 'generate']);
+        Route::get('/pending-receipts/print', [PendingReceiptController::class, 'getReceiptsForPrint']);
+        Route::post('/pending-receipts/search', [PendingReceiptController::class, 'searchByTransaction']);
+        Route::post('/pending-receipts/{id}/record', [PendingReceiptController::class, 'recordPayment']);
+
         Route::get('/bank-accounts', [BankAccountController::class, 'index']);
         Route::post('/bank-accounts', [BankAccountController::class, 'store']);
         Route::get('/bank-accounts/{id}', [BankAccountController::class, 'show']);
