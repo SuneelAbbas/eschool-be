@@ -145,10 +145,10 @@ class PendingReceiptController extends Controller
         ]);
     }
 
-    public function show(int $id): JsonResponse
+    public function show($id): JsonResponse
     {
         $pendingReceipt = PendingReceipt::with(['student', 'student.section.grade', 'paidByUser'])
-            ->find($id);
+            ->find((int) $id);
 
         if (!$pendingReceipt) {
             return response()->json([
@@ -184,10 +184,9 @@ class PendingReceiptController extends Controller
         ]);
     }
 
-    public function recordPayment(Request $request, int $id): JsonResponse
+public function recordPayment(Request $request, $id): JsonResponse
     {
-        $user = $request->user();
-        $pendingReceipt = PendingReceipt::with('student')->find($id);
+        $pendingReceipt = PendingReceipt::with('student')->find((int) $id);
 
         if (!$pendingReceipt) {
             return response()->json([

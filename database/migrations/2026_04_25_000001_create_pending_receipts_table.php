@@ -15,7 +15,7 @@ return new class extends Migration
             $table->decimal('amount', 10, 2);
             $table->date('due_date');
             $table->enum('status', ['pending', 'paid'])->default('pending');
-            $table->string('fee_breakdown')->nullable()->comment('JSON: fee type breakdown');
+            $table->text('fee_breakdown')->nullable()->comment('JSON: fee type breakdown');
             $table->date('paid_at')->nullable();
             $table->unsignedBigInteger('paid_by')->nullable();
             $table->string('payment_method')->nullable();
