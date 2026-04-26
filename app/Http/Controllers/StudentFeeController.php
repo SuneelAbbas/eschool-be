@@ -180,7 +180,20 @@ class StudentFeeController extends Controller
      */
     public function getStudentFees(Request $request, int $studentId): JsonResponse
     {
+        $user = $request->user();
         $academicYear = $request->input('academic_year');
+
+        // Verify student belongs to user's institute
+        $student = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->find($studentId);
+
+        if (!$student) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Student not found',
+            ], 404);
+        }
 
         $query = StudentFee::with(['feeType', 'paymentRecords'])
             ->where('student_id', $studentId);

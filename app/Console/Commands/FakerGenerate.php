@@ -20,7 +20,8 @@ class FakerGenerate extends Command
                             {--exams=3 : Number of exams}
                             {--clear : Clear existing data before generating}
                             {--with-attendance : Generate attendance records}
-                            {--with-results : Generate exam results}';
+                            {--with-results : Generate exam results}
+                            {--with-teacher-subjects : Assign teachers to subjects/sections}';
 
     protected $description = 'Generate fake data for an institute using Faker';
 
@@ -59,6 +60,7 @@ class FakerGenerate extends Command
             'exams' => (int) $this->option('exams'),
             'exam_results' => $this->option('with-results'),
             'attendance' => $this->option('with-attendance'),
+            'teacher_subjects' => $this->option('with-teacher-subjects'),
         ];
 
         $this->info('Generating data with options:');

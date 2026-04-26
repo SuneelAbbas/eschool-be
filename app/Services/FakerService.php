@@ -46,6 +46,7 @@ class FakerService
             'exams' => $options['exams'] ?? 3,
             'exam_results' => $options['exam_results'] ?? true,
             'attendance' => $options['attendance'] ?? true,
+            'teacher_subjects' => $options['teacher_subjects'] ?? false,
         ];
 
         $results = [];
@@ -63,8 +64,10 @@ class FakerService
         $results['teachers'] = $this->generateTeachers($counts['teachers']);
         $this->command->info("✓ Generated {$counts['teachers']} teachers");
 
-        $results['teacher_sections'] = $this->assignTeachersToSections();
-        $this->command->info("✓ Assigned teachers to sections");
+        if ($counts['teacher_subjects']) {
+            $results['teacher_sections'] = $this->assignTeachersToSections();
+            $this->command->info("✓ Assigned teachers to sections");
+        }
 
         $results['fee_types'] = $this->generateFeeTypes($counts['fee_types']);
         $this->command->info("✓ Generated {$counts['fee_types']} fee types");
