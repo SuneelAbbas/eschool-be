@@ -83,7 +83,7 @@ class StudentController extends Controller
 
         // Add fee summary if requested (optimized with SQL aggregation)
         $feeSummaryData = null;
-        if ($withFeeSummary) {
+                if ($withFeeSummary) {
             $studentIds = collect($students->items())->pluck('id')->toArray();
             
             if (!empty($studentIds)) {
@@ -91,8 +91,32 @@ class StudentController extends Controller
                 if ($academicYear) {
                     $feeQuery->where('academic_year', $academicYear);
                 }
-                if ($month) {
-                    $feeQuery->where('month', $month);
+                // Filter by month name
+                if ($month && strtolower($month) !== 'all') {
+                    // Calculate last day of the month being viewed
+                    $monthNumber = date('n', strtotime($month));
+                    $year = (int) explode('-', $academicYear)[0]; // Extract year from academic year
+                    $lastDayOfMonth = date('Y-m-d', mktime(0, 0, 0, $monthNumber + 1, 0, $year));
+                    
+                    $feeQuery->where(function ($q) use ($month, $lastDayOfMonth) {
+                        // Monthly fees for this month
+                        $q->where('month', $month)
+                           // One-time fees that were effective on or before this month
+                           ->orWhere(function ($q2) use ($lastDayOfMonth) {
+                               $q2->where(function ($q3) {
+                                   $q3->where('month', '')
+                                       ->orWhereNull('month');
+                               })->where('effective_from', '<=', $lastDayOfMonth);
+                           });
+                    });
+                }
+                if ($month && strtolower($month) !== 'all') {
+                    // Handle both number (2) and string (February) formats
+                    $monthNumber = is_numeric($month) ? (int)$month : (int)date('n', strtotime($month));
+                    $feeQuery->where(function ($q) use ($month, $monthNumber) {
+                        $q->where('month', $month)
+                           ->orWhere('month', (string)$monthNumber);
+                    });
                 }
 
                 // Get total owed per student - simple query
@@ -110,7 +134,7 @@ class StudentController extends Controller
                         if ($academicYear) {
                             $q->where('sf.academic_year', $academicYear);
                         }
-                        if ($month) {
+                        if ($month && strtolower($month) !== 'all') {
                             $q->where('sf.month', $month);
                         }
                     })
@@ -123,7 +147,7 @@ class StudentController extends Controller
                 $oldestPending = StudentFee::whereIn('student_id', $studentIds)
                     ->where('status', 'pending')
                     ->when($academicYear, fn($q) => $q->where('academic_year', $academicYear))
-                    ->when($month, fn($q) => $q->where('month', $month))
+                    ->when($month && strtolower($month) !== 'all', fn($q) => $q->where('month', $month))
                     ->select('student_id', 'created_at')
                     ->get()
                     ->groupBy('student_id')
@@ -133,7 +157,7 @@ class StudentController extends Controller
                 $lastPaymentIds = DB::table('fee_payments')
                     ->whereIn('student_id', $studentIds)
                     ->when($academicYear, fn($q) => $q->where('academic_year', $academicYear))
-                    ->when($month, fn($q) => $q->where('month', $month))
+                    ->when($month && strtolower($month) !== 'all', fn($q) => $q->where('month', $month))
                     ->orderBy('payment_date', 'desc')
                     ->select('student_id', 'id')
                     ->get()

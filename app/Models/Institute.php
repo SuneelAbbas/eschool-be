@@ -25,6 +25,11 @@ class Institute extends Model
         'status',
         'admin_user_id',
         'plan_id',
+        'current_academic_year',
+    ];
+
+    protected $casts = [
+        'current_academic_year' => 'string',
     ];
 
     public function adminUser(): BelongsTo

@@ -19,6 +19,14 @@ class GradeController extends Controller
             return $query->where('institute_id', $user->institute_id);
         })->with('sections');
 
+        if ($academicYear) {
+            $gradesQuery->withCount(['gradeFees as grade_fees_count' => function ($query) use ($academicYear) {
+                $query->where('academic_year', $academicYear);
+            }]);
+        } else {
+            $gradesQuery->withCount('gradeFees as grade_fees_count');
+        }
+
         $grades = $gradesQuery->get();
 
         if ($academicYear) {
@@ -45,6 +53,7 @@ class GradeController extends Controller
         }
 
         $grade = Grade::create($data);
+        $grade->loadCount('gradeFees as grade_fees_count');
 
         return response()->json([
             'success' => true,
@@ -56,10 +65,23 @@ class GradeController extends Controller
     public function show(Request $request, int $id): JsonResponse
     {
         $user = $request->user();
+        $academicYear = $request->input('academic_year');
 
-        $grade = Grade::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+        $gradeQuery = Grade::when(!$user->isSuperAdmin(), function ($query) use ($user) {
             return $query->where('institute_id', $user->institute_id);
-        })->with('sections')->find($id);
+        })->with('sections');
+
+        if ($academicYear) {
+            $gradeQuery->withCount(['gradeFees as grade_fees_count' => function ($query) use ($academicYear) {
+                $query->where('academic_year', $academicYear);
+            }])->with(['gradeFees' => function ($query) use ($academicYear) {
+                $query->where('academic_year', $academicYear);
+            }]);
+        } else {
+            $gradeQuery->withCount('gradeFees as grade_fees_count')->with('gradeFees');
+        }
+
+        $grade = $gradeQuery->find($id);
 
         if (!$grade) {
             return response()->json([
@@ -93,6 +115,7 @@ class GradeController extends Controller
         unset($data['institute_id']);
 
         $grade->update($data);
+        $grade->loadCount('gradeFees as grade_fees_count');
 
         return response()->json([
             'success' => true,

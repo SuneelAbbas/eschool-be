@@ -20,12 +20,22 @@ class PendingReceiptController extends Controller
         $academicYear = $request->input('academic_year');
         $dueDate = $request->input('due_date');
         $extendedDate = $request->input('extended_due_date');
-
+        
         if (!$gradeId) {
             return response()->json([
                 'success' => false,
                 'message' => 'Grade is required',
             ], 422);
+        }
+
+        // Convert month name to number if needed (e.g., "April" → 4)
+        $monthNumber = null;
+        if ($month) {
+            if (is_numeric($month)) {
+                $monthNumber = (int) $month;
+            } else {
+                $monthNumber = (int) date('n', strtotime($month)); // "April" → 4
+            }
         }
 
         // Get students for the grade
@@ -49,25 +59,37 @@ class PendingReceiptController extends Controller
         $skipped = 0;
 
         foreach ($students as $student) {
-            // Check if pending receipt already exists for this month/year
-            $existingPending = PendingReceipt::where('student_id', $student->id)
+            // Delete any existing PENDING receipt for this student with the same due_date
+            // This allows regenerating/overwriting receipts
+            PendingReceipt::where('student_id', $student->id)
                 ->where('status', 'pending')
-                ->when($month, fn($q) => $q->whereRaw('MONTH(due_date) = ?', [date('m')]))
-                ->when($academicYear, fn($q) => $q->whereRaw('YEAR(due_date) = ?', [substr($academicYear, 0, 4)]))
-                ->exists();
-
-            if ($existingPending) {
-                $skipped++;
-                continue;
-            }
+                ->where('due_date', $dueDateValue->toDateString())
+                ->delete();
 
             // Get student's pending fees
-            $studentFees = StudentFee::where('student_id', $student->id)
-                ->where('status', 'pending')
-                ->when($academicYear, fn($q) => $q->where('academic_year', $academicYear))
-                ->when($month, fn($q) => $q->where('month', $month))
-                ->with('feeType')
-                ->get();
+            $studentFeesQuery = StudentFee::where('student_id', $student->id)
+                ->where('status', 'pending');
+            
+            // Academic year matching - supports "2026" or "2025-2026" format
+            if ($academicYear) {
+                $studentFeesQuery->where(function ($q) use ($academicYear) {
+                    $q->where('academic_year', $academicYear)
+                      ->orWhere('academic_year', 'like', $academicYear . '-%')
+                      ->orWhere('academic_year', 'like', '%-' . $academicYear);
+                });
+            }
+            
+            // Handle month filtering - database stores month as name ("May") or number ("5")
+            // If no month specified, get ALL pending fees (regardless of month)
+            if ($month) {
+                // Try both formats: original input and converted number
+                $studentFeesQuery->where(function ($q) use ($month, $monthNumber) {
+                    $q->where('month', $month)  // Match "May"
+                       ->orWhere('month', (string)$monthNumber);  // Also match "5"
+                });
+            }
+            
+            $studentFees = $studentFeesQuery->with('feeType')->get();
 
             if ($studentFees->isEmpty()) {
                 $skipped++;
@@ -104,7 +126,7 @@ class PendingReceiptController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => "Generated {$generated} pending receipts ({$skipped} skipped - already exist)",
+            'message' => "Generated {$generated} pending receipts ({$skipped} skipped - no pending fees)",
             'data' => [
                 'generated' => $generated,
                 'skipped' => $skipped,
@@ -178,6 +200,94 @@ class PendingReceiptController extends Controller
                     'name' => $pendingReceipt->student->institute->name,
                     'logo' => $pendingReceipt->student->institute->logo,
                     'address' => $pendingReceipt->student->institute->address,
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Preview fee slip for a student WITHOUT generating a receipt
+     * Useful for viewing what fees a student owes before/without generating
+     */
+    public function previewFeeSlip(Request $request, int $studentId): JsonResponse
+    {
+        $user = $request->user();
+        $month = $request->input('month');
+        $academicYear = $request->input('academic_year');
+
+        // Verify student belongs to user's institute
+        $student = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->with('section.grade', 'institute')->find($studentId);
+
+        if (!$student) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Student not found',
+            ], 404);
+        }
+
+        // Get pending fees
+        $feesQuery = StudentFee::where('student_id', $studentId)
+            ->where('status', 'pending')
+            ->with('feeType');
+
+        if ($academicYear) {
+            $feesQuery->where('academic_year', $academicYear);
+        }
+
+        if ($month) {
+            $monthNumber = is_numeric($month) ? $month : date('n', strtotime($month));
+            $feesQuery->where('month', (string)$monthNumber);
+        }
+
+        $fees = $feesQuery->get();
+
+        if ($fees->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No pending fees found for this student',
+            ], 404);
+        }
+
+        // Build fee breakdown and total
+        $totalAmount = 0;
+        $breakdown = [];
+
+        foreach ($fees as $fee) {
+            $amount = (float) $fee->amount;
+            $totalAmount += $amount;
+            $breakdown[] = [
+                'fee_type' => $fee->feeType?->name ?? 'Unknown Fee',
+                'amount' => $amount,
+                'month' => $fee->month,
+                'academic_year' => $fee->academic_year,
+            ];
+        }
+
+        // Generate a preview transaction ID (not saved to DB)
+        $previewTransactionId = 'PREVIEW-' . now()->format('Ymd') . '-' . str_pad($studentId, 4, '0', STR_PAD_LEFT);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'preview' => true,
+                'transaction_id' => $previewTransactionId,
+                'due_date' => PendingReceipt::calculateDueDate()->toDateString(),
+                'amount' => $totalAmount,
+                'fee_breakdown' => $breakdown,
+                'student' => [
+                    'id' => $student->id,
+                    'name' => $student->first_name . ' ' . $student->last_name,
+                    'registration_number' => $student->registration_number,
+                    'grade' => $student->section->grade->name ?? 'N/A',
+                    'section' => $student->section->name ?? 'N/A',
+                    'father_name' => $student->parents_name ?? 'N/A',
+                ],
+                'institute' => [
+                    'name' => $student->institute->name,
+                    'logo' => $student->institute->logo,
+                    'address' => $student->institute->address,
                 ],
             ],
         ]);

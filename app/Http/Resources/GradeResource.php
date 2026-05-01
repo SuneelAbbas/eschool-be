@@ -14,6 +14,7 @@ class GradeResource extends JsonResource
             'name' => $this->name,
             'description' => $this->description,
             'institute_id' => $this->institute_id,
+            'has_fees_assigned' => (int) ($this->grade_fees_count ?? 0) > 0,
             'sections_count' => $this->sections()->count(),
             'students_count' => $this->sections()->withCount('students')->get()->sum('students_count'),
             'grade_fees' => $this->whenLoaded('gradeFees', function () {

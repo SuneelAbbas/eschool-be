@@ -25,11 +25,34 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PendingReceiptController;
+use App\Http\Controllers\FeeSlipController;
 use App\Http\Controllers\ReportCardController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/institute-register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+
+// Institute settings (admin only)
+Route::middleware('auth:sanctum', 'role:admin')->group(function () {
+    Route::put('/institutes/current-academic-year', function (\Illuminate\Http\Request $request) {
+        $request->validate(['current_academic_year' => 'required|string|size:9']);
+        
+        $user = $request->user();
+        $institute = $user->institute;
+        
+        if (!$institute) {
+            return response()->json(['success' => false, 'message' => 'Institute not found'], 404);
+        }
+        
+        $institute->update(['current_academic_year' => $request->input('current_academic_year')]);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Current academic year updated successfully',
+            'data' => ['current_academic_year' => $institute->fresh()->current_academic_year]
+        ]);
+    });
+});
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
@@ -131,11 +154,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/fee-types/{id}', [FeeTypeController::class, 'update']);
         Route::delete('/fee-types/{id}', [FeeTypeController::class, 'destroy']);
 
-Route::get('/grade-fees', [GradeFeeController::class, 'index']);
+        Route::get('/grade-fees', [GradeFeeController::class, 'index']);
         Route::post('/grade-fees', [GradeFeeController::class, 'store']);
         Route::post('/grade-fees/batch', [GradeFeeController::class, 'storeBatch']);
         Route::put('/grade-fees/batch', [GradeFeeController::class, 'updateBatch']);
         Route::post('/grade-fees/batch-delete', [GradeFeeController::class, 'destroyBatch']);
+        Route::post('/grade-fees/rollover', [GradeFeeController::class, 'rollover']);
         Route::post('/grades/{gradeId}/fees/assign-to-students', [GradeFeeController::class, 'assignToStudents']);
         Route::get('/grades/{gradeId}/fees/students-without-fee', [GradeFeeController::class, 'getStudentsWithoutFee']);
         Route::get('/grade-fees/{id}', [GradeFeeController::class, 'show']);
@@ -172,6 +196,10 @@ Route::get('/grade-fees', [GradeFeeController::class, 'index']);
         Route::get('/fee-payments/{id}/receipt', [FeePaymentController::class, 'receipt']);
         Route::get('/students/{studentId}/payments', [FeePaymentController::class, 'studentPayments']);
         Route::delete('/fee-payments/{id}', [FeePaymentController::class, 'destroy']);
+
+        // Fee Slips (Pre-payment Challans)
+        Route::get('/fee-slips', [FeeSlipController::class, 'index']);
+        Route::get('/fee-slip/{studentId}', [FeeSlipController::class, 'show']);
 
         // Pending Receipts - specific routes first!
         Route::get('/pending-receipts/print', [PendingReceiptController::class, 'getReceiptsForPrint']);

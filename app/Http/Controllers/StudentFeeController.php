@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StudentFeeRequest;
 use App\Http\Resources\StudentFeeResource;
+use App\Models\Student;
 use App\Models\StudentFee;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

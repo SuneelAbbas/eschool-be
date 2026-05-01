@@ -47,6 +47,17 @@ class GradeFeeController extends Controller
     public function store(GradeFeeRequest $request): JsonResponse
     {
         $data = $request->validated();
+        
+        // If academic_year not provided, use institute's current_academic_year
+        if (empty($data['academic_year'])) {
+            $grade = \App\Models\Grade::find($data['grade_id']);
+            if ($grade && $grade->institute) {
+                $data['academic_year'] = $grade->institute->current_academic_year ?? $this->calculateAcademicYear();
+            } else {
+                $data['academic_year'] = $this->calculateAcademicYear();
+            }
+        }
+        
         $gradeFee = GradeFee::create($data);
         $gradeFee->load(['grade', 'feeType']);
 
@@ -55,6 +66,22 @@ class GradeFeeController extends Controller
             'message' => 'Fee assigned to grade successfully',
             'data' => new GradeFeeResource($gradeFee),
         ], 201);
+    }
+
+    /**
+     * Calculate current academic year based on current date
+     * Assumes academic year runs from April to March
+     */
+    private function calculateAcademicYear(): string
+    {
+        $currentYear = date('Y');
+        $currentMonth = date('n');
+        
+        if ($currentMonth >= 4) {
+            return $currentYear . '-' . ($currentYear + 1);
+        } else {
+            return ($currentYear - 1) . '-' . $currentYear;
+        }
     }
 
     public function show(Request $request, int $id): JsonResponse
@@ -140,10 +167,20 @@ class GradeFeeController extends Controller
         
         foreach ($gradeFees as $index => $feeData) {
             try {
+                // If academic_year not provided, get it from institute's current_academic_year
+                if (empty($feeData['academic_year'])) {
+                    $grade = \App\Models\Grade::find($feeData['grade_id']);
+                    if ($grade && $grade->institute) {
+                        $feeData['academic_year'] = $grade->institute->current_academic_year ?? $this->calculateAcademicYear();
+                    } else {
+                        $feeData['academic_year'] = $this->calculateAcademicYear();
+                    }
+                }
+                
                 $gradeFee = GradeFee::create([
                     'grade_id' => $feeData['grade_id'],
                     'fee_type_id' => $feeData['fee_type_id'],
-                    'academic_year' => $feeData['academic_year'] ?? null,
+                    'academic_year' => $feeData['academic_year'],
                     'amount' => $feeData['amount'],
                     'effective_from' => $feeData['effective_from'],
                     'effective_to' => $feeData['effective_to'] ?? null,
@@ -514,6 +551,178 @@ class GradeFeeController extends Controller
                 $query->where('fee_type_id', $feeTypeId);
             })
             ->exists();
+    }
+
+    /**
+     * Rollover grade fees from one academic year to another
+     * Copies all grade fee assignments from the source year to the target year
+     */
+    public function rollover(Request $request): JsonResponse
+    {
+        $request->validate([
+            'from_academic_year' => 'required|string',
+            'to_academic_year' => 'required|string|different:from_academic_year',
+            'grade_ids' => 'nullable|array',
+            'grade_ids.*' => 'integer|exists:grades,id',
+            'assign_to_students' => 'boolean',
+        ]);
+
+        $fromYear = $request->input('from_academic_year');
+        $toYear = $request->input('to_academic_year');
+        $gradeIds = $request->input('grade_ids', []);
+        $assignToStudents = $request->input('assign_to_students', false);
+
+        // Build query for source grade fees
+        $sourceFeesQuery = GradeFee::where('academic_year', $fromYear);
+        
+        if (!empty($gradeIds)) {
+            $sourceFeesQuery->whereIn('grade_id', $gradeIds);
+        }
+
+        $sourceFees = $sourceFeesQuery->with('feeType')->get();
+
+        if ($sourceFees->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => "No grade fees found for academic year {$fromYear}",
+            ], 404);
+        }
+
+        $created = 0;
+        $skipped = 0;
+        $studentFeesCreated = 0;
+        $errors = [];
+
+        foreach ($sourceFees as $sourceFee) {
+            try {
+                // Check if already exists for target year
+                $exists = GradeFee::where('grade_id', $sourceFee->grade_id)
+                    ->where('fee_type_id', $sourceFee->fee_type_id)
+                    ->where('academic_year', $toYear)
+                    ->exists();
+
+                if ($exists) {
+                    $skipped++;
+                    continue;
+                }
+
+                // Create new grade fee for target year
+                $newGradeFee = GradeFee::create([
+                    'grade_id' => $sourceFee->grade_id,
+                    'fee_type_id' => $sourceFee->fee_type_id,
+                    'academic_year' => $toYear,
+                    'amount' => $sourceFee->amount,
+                    'effective_from' => $sourceFee->effective_from,
+                    'effective_to' => $sourceFee->effective_to,
+                ]);
+
+                $created++;
+
+                // Optionally assign to existing students
+                if ($assignToStudents && $newGradeFee->feeType) {
+                    $studentFeesCreated += $this->assignFeeToStudents(
+                        $newGradeFee,
+                        $sourceFee->grade_id,
+                        $toYear
+                    );
+                }
+            } catch (\Exception $e) {
+                $errors[] = [
+                    'grade_id' => $sourceFee->grade_id,
+                    'fee_type_id' => $sourceFee->fee_type_id,
+                    'error' => $e->getMessage(),
+                ];
+            }
+        }
+
+        return response()->json([
+            'success' => count($errors) === 0,
+            'message' => "Rollover complete: {$created} created, {$skipped} skipped",
+            'data' => [
+                'grade_fees_created' => $created,
+                'grade_fees_skipped' => $skipped,
+                'student_fees_created' => $studentFeesCreated,
+                'errors' => $errors,
+            ],
+        ]);
+    }
+
+    /**
+     * Assign a specific grade fee to all students in the grade
+     */
+    private function assignFeeToStudents(GradeFee $gradeFee, int $gradeId, string $academicYear): int
+    {
+        $feeType = $gradeFee->feeType;
+        if (!$feeType) {
+            return 0;
+        }
+
+        // Get students in this grade
+        $sectionIds = \App\Models\Section::where('grade_id', $gradeId)->pluck('id')->toArray();
+        if (empty($sectionIds)) {
+            return 0;
+        }
+
+        $students = Student::whereIn('section_id', $sectionIds)
+            ->where('status', 'active')
+            ->get();
+
+        $assignedCount = 0;
+        $currentMonth = date('n');
+
+        foreach ($students as $student) {
+            $targetMonths = [null];
+            if ($feeType->type === 'monthly') {
+                $targetMonths = [(string)$currentMonth];
+            }
+
+            foreach ($targetMonths as $month) {
+                // Check if already assigned
+                $existingQuery = StudentFee::where('student_id', $student->id)
+                    ->where('fee_type_id', $feeType->id)
+                    ->where('academic_year', $academicYear);
+                
+                if ($month !== null) {
+                    $existingQuery->where('month', $month);
+                } else {
+                    $existingQuery->whereNull('month');
+                }
+
+                if ($existingQuery->exists()) {
+                    continue;
+                }
+
+                // Check lifetime payment for one_time fees
+                if ($feeType->type === 'one_time') {
+                    if ($this->checkLifetimePayment($student->id, $feeType->id)) {
+                        continue;
+                    }
+                }
+
+                try {
+                    StudentFee::create([
+                        'student_id' => $student->id,
+                        'fee_type_id' => $feeType->id,
+                        'academic_year' => $academicYear,
+                        'month' => $month,
+                        'amount' => $gradeFee->amount,
+                        'is_custom' => false,
+                        'is_active' => true,
+                        'is_inherited' => true,
+                        'inherited_from_grade_fee_id' => $gradeFee->id,
+                        'prorate_percentage' => 100,
+                        'status' => 'pending',
+                        'effective_from' => $gradeFee->effective_from,
+                        'effective_to' => $gradeFee->effective_to,
+                    ]);
+                    $assignedCount++;
+                } catch (\Exception $e) {
+                    // Skip duplicates
+                }
+            }
+        }
+
+        return $assignedCount;
     }
 
     /**
