@@ -9,12 +9,6 @@ use App\Http\Controllers\ClassSectionController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\TeacherSectionController;
-use App\Http\Controllers\FeeTypeController;
-use App\Http\Controllers\GradeFeeController;
-use App\Http\Controllers\StudentFeeController;
-use App\Http\Controllers\DiscountController;
-use App\Http\Controllers\StudentDiscountController;
-use App\Http\Controllers\FeePaymentController;
 use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\ExamTypeController;
 use App\Http\Controllers\ExamController;
@@ -24,8 +18,6 @@ use App\Http\Controllers\GradeSubjectController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\PermissionController;
-use App\Http\Controllers\PendingReceiptController;
-use App\Http\Controllers\FeeSlipController;
 use App\Http\Controllers\ReportCardController;
 use Illuminate\Support\Facades\Route;
 
@@ -147,76 +139,8 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::middleware('role:admin,accountant')->group(function () {
-        Route::get('/fee-types', [FeeTypeController::class, 'index']);
-        Route::post('/fee-types', [FeeTypeController::class, 'store']);
-        Route::post('/fee-types/batch', [FeeTypeController::class, 'destroyBatch']);
-        Route::get('/fee-types/{id}', [FeeTypeController::class, 'show']);
-        Route::put('/fee-types/{id}', [FeeTypeController::class, 'update']);
-        Route::delete('/fee-types/{id}', [FeeTypeController::class, 'destroy']);
-
-        Route::get('/grade-fees', [GradeFeeController::class, 'index']);
-        Route::post('/grade-fees', [GradeFeeController::class, 'store']);
-        Route::post('/grade-fees/batch', [GradeFeeController::class, 'storeBatch']);
-        Route::put('/grade-fees/batch', [GradeFeeController::class, 'updateBatch']);
-        Route::post('/grade-fees/batch-delete', [GradeFeeController::class, 'destroyBatch']);
-        Route::post('/grade-fees/rollover', [GradeFeeController::class, 'rollover']);
-        Route::post('/grades/{gradeId}/fees/assign-to-students', [GradeFeeController::class, 'assignToStudents']);
-        Route::get('/grades/{gradeId}/fees/students-without-fee', [GradeFeeController::class, 'getStudentsWithoutFee']);
-        Route::get('/grade-fees/{id}', [GradeFeeController::class, 'show']);
-        Route::put('/grade-fees/{id}', [GradeFeeController::class, 'update']);
-        Route::delete('/grade-fees/{id}', [GradeFeeController::class, 'destroy']);
-
-        Route::get('/student-fees', [StudentFeeController::class, 'index']);
-        Route::post('/student-fees', [StudentFeeController::class, 'store']);
-        Route::post('/student-fees/assign', [StudentFeeController::class, 'assignToStudent']);
-        Route::get('/students/{studentId}/fees', [StudentFeeController::class, 'getStudentFees']);
-        Route::delete('/student-fees/clear-grade', [StudentFeeController::class, 'clearGradeStudentFees']);
-        Route::get('/student-fees/{id}', [StudentFeeController::class, 'show']);
-        Route::put('/student-fees/{id}', [StudentFeeController::class, 'update']);
-        Route::put('/student-fees/{id}/override', [StudentFeeController::class, 'overrideAmount']);
-        Route::delete('/student-fees/{id}', [StudentFeeController::class, 'destroy']);
-
-        Route::get('/discounts', [DiscountController::class, 'index']);
-        Route::post('/discounts', [DiscountController::class, 'store']);
-        Route::get('/discounts/{id}', [DiscountController::class, 'show']);
-        Route::put('/discounts/{id}', [DiscountController::class, 'update']);
-        Route::delete('/discounts/{id}', [DiscountController::class, 'destroy']);
-
-        Route::get('/student-discounts', [StudentDiscountController::class, 'index']);
-        Route::post('/student-discounts', [StudentDiscountController::class, 'store']);
-        Route::get('/student-discounts/{id}', [StudentDiscountController::class, 'show']);
-        Route::put('/student-discounts/{id}', [StudentDiscountController::class, 'update']);
-        Route::delete('/student-discounts/{id}', [StudentDiscountController::class, 'destroy']);
-
-        Route::get('/fee-payments', [FeePaymentController::class, 'index']);
-        Route::post('/fee-payments', [FeePaymentController::class, 'store']);
-        Route::get('/fee-payments/defaulters', [FeePaymentController::class, 'defaulters']);
-        Route::get('/fee-payments/bulk-receipts', [FeePaymentController::class, 'bulkReceipts']);
-        Route::get('/fee-payments/{id}', [FeePaymentController::class, 'show']);
-        Route::get('/fee-payments/{id}/receipt', [FeePaymentController::class, 'receipt']);
-        Route::get('/students/{studentId}/payments', [FeePaymentController::class, 'studentPayments']);
-        Route::delete('/fee-payments/{id}', [FeePaymentController::class, 'destroy']);
-
-        // Fee Slips (Pre-payment Challans)
-        Route::get('/fee-slips', [FeeSlipController::class, 'index']);
-        Route::get('/fee-slip/{studentId}', [FeeSlipController::class, 'show']);
-
-        // Pending Receipts - specific routes first!
-        Route::get('/pending-receipts/print', [PendingReceiptController::class, 'getReceiptsForPrint']);
-        Route::post('/pending-receipts/search', [PendingReceiptController::class, 'searchByTransaction']);
-        Route::get('/pending-receipts', [PendingReceiptController::class, 'index']);
-        Route::post('/pending-receipts', [PendingReceiptController::class, 'generate']);
-        Route::get('/pending-receipts/{id}', [PendingReceiptController::class, 'show']);
-        Route::post('/pending-receipts/{id}/record', [PendingReceiptController::class, 'recordPayment']);
-
-        Route::get('/bank-accounts', [BankAccountController::class, 'index']);
-        Route::post('/bank-accounts', [BankAccountController::class, 'store']);
-        Route::get('/bank-accounts/{id}', [BankAccountController::class, 'show']);
-        Route::put('/bank-accounts/{id}', [BankAccountController::class, 'update']);
-        Route::patch('/bank-accounts/{id}', [BankAccountController::class, 'update']);
-        Route::delete('/bank-accounts/{id}', [BankAccountController::class, 'destroy']);
-        Route::post('/bank-accounts/{id}/set-default', [BankAccountController::class, 'setDefault']);
-
+        // TODO: Fee management routes will be re-implemented
+        
         Route::get('/exam-types', [ExamTypeController::class, 'index']);
         Route::post('/exam-types', [ExamTypeController::class, 'store']);
         Route::get('/exam-types/{id}', [ExamTypeController::class, 'show']);

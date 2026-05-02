@@ -3,17 +3,22 @@
 namespace Database\Seeders;
 
 use App\Models\FeeType;
+use App\Models\Institute;
 use Illuminate\Database\Seeder;
 
 class FeeTypeSeeder extends Seeder
 {
     public function run(): void
     {
-        $instituteId = 1; // Assuming institute ID 1 for demo
+        $institutes = Institute::all();
 
-        $feeTypes = [
+        if ($institutes->isEmpty()) {
+            $this->command->warn('No institutes found. Please run InstituteSeeder first.');
+            return;
+        }
+
+        $feeTypesTemplate = [
             [
-                'institute_id' => $instituteId,
                 'name' => 'Tuition Fee',
                 'code' => 'TUITION',
                 'amount' => 5000,
@@ -23,7 +28,6 @@ class FeeTypeSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'institute_id' => $instituteId,
                 'name' => 'Lab Fee',
                 'code' => 'LAB',
                 'amount' => 1000,
@@ -33,7 +37,6 @@ class FeeTypeSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'institute_id' => $instituteId,
                 'name' => 'Library Fee',
                 'code' => 'LIBRARY',
                 'amount' => 500,
@@ -43,7 +46,6 @@ class FeeTypeSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'institute_id' => $instituteId,
                 'name' => 'Sports Fee',
                 'code' => 'SPORTS',
                 'amount' => 500,
@@ -53,7 +55,6 @@ class FeeTypeSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'institute_id' => $instituteId,
                 'name' => 'Admission Fee',
                 'code' => 'ADMISSION',
                 'amount' => 5000,
@@ -63,7 +64,6 @@ class FeeTypeSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'institute_id' => $instituteId,
                 'name' => 'Annual Exam Fee',
                 'code' => 'EXAM',
                 'amount' => 2000,
@@ -73,7 +73,6 @@ class FeeTypeSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'institute_id' => $instituteId,
                 'name' => 'Transport Fee',
                 'code' => 'TRANSPORT',
                 'amount' => 2000,
@@ -83,7 +82,6 @@ class FeeTypeSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'institute_id' => $instituteId,
                 'name' => 'Activity Fee',
                 'code' => 'ACTIVITY',
                 'amount' => 800,
@@ -94,8 +92,28 @@ class FeeTypeSeeder extends Seeder
             ],
         ];
 
-        foreach ($feeTypes as $feeType) {
-            FeeType::create($feeType);
+        $totalCreated = 0;
+
+        foreach ($institutes as $institute) {
+            // Check if fee types already exist for this institute
+            $existingCount = FeeType::where('institute_id', $institute->id)->count();
+            
+            if ($existingCount > 0) {
+                $this->command->info("Fee types already exist for institute: {$institute->name} (ID: {$institute->id}), skipping.");
+                continue;
+            }
+
+            foreach ($feeTypesTemplate as $feeType) {
+                FeeType::create([
+                    'institute_id' => $institute->id,
+                    ...$feeType,
+                ]);
+                $totalCreated++;
+            }
+
+            $this->command->info("Created 8 fee types for institute: {$institute->name} (ID: {$institute->id})");
         }
+
+        $this->command->info("Total fee types created: {$totalCreated}");
     }
 }
