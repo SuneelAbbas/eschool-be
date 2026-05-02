@@ -369,8 +369,8 @@ class StudentController extends Controller
 
         $student = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
             return $query->where('institute_id', $user->institute_id);
-        })->with('section')->find($id);
-
+        })->with(['section', 'feeCategory'])->find($id);
+        
         if (!$student) {
             return response()->json([
                 'success' => false,
@@ -404,7 +404,7 @@ class StudentController extends Controller
 
         $student = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
             return $query->where('institute_id', $user->institute_id);
-        })->with('section.grade')->find($id);
+        })->with(['section.grade', 'feeCategory'])->find($id);
 
         if (!$student) {
             return response()->json([
