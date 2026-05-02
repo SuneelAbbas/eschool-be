@@ -36,4 +36,9 @@ class Grade extends Model
     {
         return $this->hasMany(GradeFee::class);
     }
+
+    public function feeSchedules(): HasMany
+    {
+        return $this->hasMany(FeeSchedule::class);
+    }
 }

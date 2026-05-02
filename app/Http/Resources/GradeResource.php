@@ -14,11 +14,11 @@ class GradeResource extends JsonResource
             'name' => $this->name,
             'description' => $this->description,
             'institute_id' => $this->institute_id,
-            'has_fees_assigned' => (int) ($this->grade_fees_count ?? 0) > 0,
+            'has_fees_assigned' => $this->feeSchedules()->where('is_active', true)->exists(),
             'sections_count' => $this->sections()->count(),
             'students_count' => $this->sections()->withCount('students')->get()->sum('students_count'),
-            'grade_fees' => $this->whenLoaded('gradeFees', function () {
-                return GradeFeeResource::collection($this->gradeFees);
+            'fee_schedules' => $this->whenLoaded('feeSchedules', function () {
+                return \App\Http\Resources\FeeScheduleResource::collection($this->feeSchedules);
             }),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
