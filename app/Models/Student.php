@@ -31,6 +31,7 @@ class Student extends Model
         'user_id',
         'section_id',
         'admission_date',
+        'fee_category_id',
     ];
 
     protected $casts = [
@@ -65,6 +66,11 @@ class Student extends Model
     public function studentDiscounts(): HasMany
     {
         return $this->hasMany(StudentDiscount::class);
+    }
+
+    public function feeCategory(): BelongsTo
+    {
+        return $this->belongsTo(FeeCategory::class);
     }
 
     public function feePayments(): HasMany

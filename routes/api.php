@@ -19,6 +19,9 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ReportCardController;
+use App\Http\Controllers\FeeTypeController;
+use App\Http\Controllers\FeeCategoryController;
+use App\Http\Controllers\FeeScheduleController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/institute-register', [AuthController::class, 'register']);
@@ -216,6 +219,31 @@ Route::delete('/exam-types/{id}', [ExamTypeController::class, 'destroy']);
     });
 
     Route::get('/me/permissions', [UserController::class, 'myPermissions']);
+
+    // Fee Management Routes (Admin, Accountant)
+    Route::middleware('role:admin,accountant')->group(function () {
+        // Fee Types (Fee Head Definitions)
+        Route::get('/fee-types', [FeeTypeController::class, 'index']);
+        Route::post('/fee-types', [FeeTypeController::class, 'store']);
+        Route::get('/fee-types/{id}', [FeeTypeController::class, 'show']);
+        Route::put('/fee-types/{id}', [FeeTypeController::class, 'update']);
+        Route::delete('/fee-types/{id}', [FeeTypeController::class, 'destroy']);
+
+        // Fee Categories (New, Old, RTE, etc.)
+        Route::get('/fee-categories', [FeeCategoryController::class, 'index']);
+        Route::post('/fee-categories', [FeeCategoryController::class, 'store']);
+        Route::get('/fee-categories/{id}', [FeeCategoryController::class, 'show']);
+        Route::put('/fee-categories/{id}', [FeeCategoryController::class, 'update']);
+        Route::delete('/fee-categories/{id}', [FeeCategoryController::class, 'destroy']);
+
+        // Fee Schedules (Mapping fees to grades with frequency)
+        Route::get('/fee-schedules', [FeeScheduleController::class, 'index']);
+        Route::post('/fee-schedules', [FeeScheduleController::class, 'store']);
+        Route::get('/fee-schedules/{id}', [FeeScheduleController::class, 'show']);
+        Route::put('/fee-schedules/{id}', [FeeScheduleController::class, 'update']);
+        Route::delete('/fee-schedules/{id}', [FeeScheduleController::class, 'destroy']);
+        Route::post('/fee-schedules/generate-student-fees', [FeeScheduleController::class, 'generateStudentFees']);
+    });
 
     // Role & Permission Routes (Admin only)
     Route::middleware('role:admin,super_admin')->group(function () {

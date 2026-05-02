@@ -57,6 +57,7 @@ class StudentRequest extends FormRequest
             'upload' => ['nullable', 'string', 'max:255'],
             'institute_id' => ['nullable', 'integer', 'exists:institutes,id'],
             'admission_date' => ['nullable', 'date'],
+            'fee_category_id' => ['nullable', 'integer', 'exists:fee_categories,id'],
         ];
 
         if ($this->isMethod('PUT') || $this->isMethod('PATCH')) {
@@ -72,6 +73,7 @@ class StudentRequest extends FormRequest
                                  ->where('id', '!=', $studentId);
                 }),
             ];
+            $rules['fee_category_id'] = ['sometimes', 'nullable', 'integer', 'exists:fee_categories,id'];
         }
 
         return $rules;

@@ -21,7 +21,6 @@ class FeeTypeSeeder extends Seeder
             [
                 'name' => 'Tuition Fee',
                 'code' => 'TUITION',
-                'amount' => 5000,
                 'type' => 'monthly',
                 'due_day' => 10,
                 'description' => 'Monthly tuition fee for regular classes',
@@ -30,7 +29,6 @@ class FeeTypeSeeder extends Seeder
             [
                 'name' => 'Lab Fee',
                 'code' => 'LAB',
-                'amount' => 1000,
                 'type' => 'monthly',
                 'due_day' => 10,
                 'description' => 'Monthly laboratory fee for science subjects',
@@ -39,7 +37,6 @@ class FeeTypeSeeder extends Seeder
             [
                 'name' => 'Library Fee',
                 'code' => 'LIBRARY',
-                'amount' => 500,
                 'type' => 'monthly',
                 'due_day' => 10,
                 'description' => 'Monthly library maintenance fee',
@@ -48,7 +45,6 @@ class FeeTypeSeeder extends Seeder
             [
                 'name' => 'Sports Fee',
                 'code' => 'SPORTS',
-                'amount' => 500,
                 'type' => 'monthly',
                 'due_day' => 10,
                 'description' => 'Monthly sports and physical education fee',
@@ -57,7 +53,6 @@ class FeeTypeSeeder extends Seeder
             [
                 'name' => 'Admission Fee',
                 'code' => 'ADMISSION',
-                'amount' => 5000,
                 'type' => 'one_time',
                 'due_day' => null,
                 'description' => 'One-time admission processing fee',
@@ -66,7 +61,6 @@ class FeeTypeSeeder extends Seeder
             [
                 'name' => 'Annual Exam Fee',
                 'code' => 'EXAM',
-                'amount' => 2000,
                 'type' => 'one_time',
                 'due_day' => null,
                 'description' => 'Annual examination fee',
@@ -75,7 +69,6 @@ class FeeTypeSeeder extends Seeder
             [
                 'name' => 'Transport Fee',
                 'code' => 'TRANSPORT',
-                'amount' => 2000,
                 'type' => 'monthly',
                 'due_day' => 10,
                 'description' => 'Monthly transportation fee',
@@ -84,7 +77,6 @@ class FeeTypeSeeder extends Seeder
             [
                 'name' => 'Activity Fee',
                 'code' => 'ACTIVITY',
-                'amount' => 800,
                 'type' => 'monthly',
                 'due_day' => 10,
                 'description' => 'Monthly co-curricular activities fee',

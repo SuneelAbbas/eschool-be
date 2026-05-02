@@ -18,6 +18,8 @@ class DatabaseSeeder extends Seeder
             StudentSeeder::class,
             SubjectSeeder::class,
             FeeTypeSeeder::class,
+            FeeCategorySeeder::class,
+            FeeScheduleSeeder::class,
             BankAccountSeeder::class,
             DiscountSeeder::class,
             ExamTypeSeeder::class,

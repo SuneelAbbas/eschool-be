@@ -2,21 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\FeeType;
-use App\Http\Resources\FeeTypeResource;
+use App\Models\FeeCategory;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
-class FeeTypeController extends Controller
+class FeeCategoryController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
         
-        $feeTypes = FeeType::where('institute_id', $user->institute_id)
-            ->when($request->has('type'), function ($q) use ($request) {
-                return $q->where('type', $request->type);
-            })
+        $categories = FeeCategory::where('institute_id', $user->institute_id)
             ->when($request->has('is_active'), function ($q) use ($request) {
                 return $q->where('is_active', $request->boolean('is_active'));
             })
@@ -24,7 +20,7 @@ class FeeTypeController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => FeeTypeResource::collection($feeTypes),
+            'data' => $categories,
         ]);
     }
 
@@ -34,21 +30,19 @@ class FeeTypeController extends Controller
         
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'code' => 'required|string|max:50',
-            'type' => 'required|in:monthly,one_time',
-            'due_day' => 'nullable|integer|min:1|max:28',
+            'code' => 'required|string|max:10',
             'description' => 'nullable|string',
             'is_active' => 'boolean',
         ]);
 
         $validated['institute_id'] = $user->institute_id;
 
-        $feeType = FeeType::create($validated);
+        $category = FeeCategory::create($validated);
 
         return response()->json([
             'success' => true,
-            'message' => 'Fee type created successfully',
-            'data' => new FeeTypeResource($feeType),
+            'message' => 'Fee category created successfully',
+            'data' => $category,
         ], 201);
     }
 
@@ -56,12 +50,12 @@ class FeeTypeController extends Controller
     {
         $user = request()->user();
         
-        $feeType = FeeType::where('institute_id', $user->institute_id)
+        $category = FeeCategory::where('institute_id', $user->institute_id)
             ->findOrFail($id);
 
         return response()->json([
             'success' => true,
-            'data' => new FeeTypeResource($feeType),
+            'data' => $category,
         ]);
     }
 
@@ -69,24 +63,22 @@ class FeeTypeController extends Controller
     {
         $user = $request->user();
         
-        $feeType = FeeType::where('institute_id', $user->institute_id)
+        $category = FeeCategory::where('institute_id', $user->institute_id)
             ->findOrFail($id);
 
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
-            'code' => 'sometimes|string|max:50',
-            'type' => 'sometimes|in:monthly,one_time',
-            'due_day' => 'nullable|integer|min:1|max:28',
+            'code' => 'sometimes|string|max:10',
             'description' => 'nullable|string',
             'is_active' => 'sometimes|boolean',
         ]);
 
-        $feeType->update($validated);
+        $category->update($validated);
 
         return response()->json([
             'success' => true,
-            'message' => 'Fee type updated successfully',
-            'data' => new FeeTypeResource($feeType->fresh()),
+            'message' => 'Fee category updated successfully',
+            'data' => $category->fresh(),
         ]);
     }
 
@@ -94,14 +86,14 @@ class FeeTypeController extends Controller
     {
         $user = request()->user();
         
-        $feeType = FeeType::where('institute_id', $user->institute_id)
+        $category = FeeCategory::where('institute_id', $user->institute_id)
             ->findOrFail($id);
 
-        $feeType->delete();
+        $category->delete();
 
         return response()->json([
             'success' => true,
-            'message' => 'Fee type deleted successfully',
+            'message' => 'Fee category deleted successfully',
         ]);
     }
 }

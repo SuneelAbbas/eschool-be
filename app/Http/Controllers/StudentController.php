@@ -280,7 +280,7 @@ class StudentController extends Controller
     }
 
     /**
-     * Auto-assign grade fees to a newly enrolled student
+     * Auto-assign grade fees to a newly enrolled student using FeeSchedule
      */
     private function assignGradeFeesToStudent(Student $student): array
     {
@@ -298,79 +298,47 @@ class StudentController extends Controller
         $admissionDate = $student->admission_date ?? now()->toDateString();
         $academicYear = $this->getAcademicYear($admissionDate);
 
-        // Get all grade fees for this grade and academic year
-        $gradeFees = GradeFee::where('grade_id', $gradeId)
-            ->where('academic_year', $academicYear)
-            ->with('feeType')
+        // Get all active fee schedules for this grade
+        $schedules = \App\Models\FeeSchedule::where('institute_id', $student->institute_id)
+            ->where('grade_id', $gradeId)
+            ->where('is_active', true)
             ->get();
 
-        if ($gradeFees->isEmpty()) {
+        if ($schedules->isEmpty()) {
             return [];
         }
 
-        // Calculate prorate percentage based on admission date
-        $proratePercentage = $this->calculateProratePercentage($admissionDate);
-
         $assignedFees = [];
 
-        foreach ($gradeFees as $gradeFee) {
-            $feeType = $gradeFee->feeType;
-
-            // Skip if fee type doesn't exist
-            if (!$feeType) {
-                continue;
+        foreach ($schedules as $schedule) {
+            // Check if schedule applies to this student's fee category
+            if ($schedule->fee_category_id && $schedule->fee_category_id != $student->fee_category_id) {
+                continue; // Skip - doesn't apply to this student
             }
 
-            // Check if student already has this fee (for one-time fees - lifetime check)
-            if ($feeType->type === 'one_time') {
-                $alreadyPaid = $this->checkLifetimePayment($student->id, $feeType->id);
-                if ($alreadyPaid) {
-                    continue; // Skip if already paid in any year
+            // Generate student fees for the entire academic year
+            $fees = $schedule->generateStudentFees($student->id, $admissionDate, $academicYear);
+
+            foreach ($fees as $feeData) {
+                // Check if already exists
+                $exists = \App\Models\StudentFee::where('student_id', $student->id)
+                    ->where('fee_type_id', $feeData['fee_type_id'])
+                    ->where('month', $feeData['month'])
+                    ->where('academic_year', $feeData['academic_year'])
+                    ->exists();
+
+                if (!$exists) {
+                    \App\Models\StudentFee::create($feeData);
+                    
+                    $feeType = \App\Models\FeeType::find($feeData['fee_type_id']);
+                    $assignedFees[] = [
+                        'fee_type' => $feeType?->name ?? 'Unknown',
+                        'amount' => $feeData['amount'],
+                        'month' => $feeData['month'],
+                        'frequency' => $schedule->frequency,
+                    ];
                 }
             }
-
-            // Check if student already has this fee assigned for this academic year
-            $existingFee = StudentFee::where('student_id', $student->id)
-                ->where('fee_type_id', $feeType->id)
-                ->where('academic_year', $academicYear)
-                ->first();
-
-            if ($existingFee) {
-                continue; // Skip if already assigned
-            }
-
-            // Calculate amount based on prorate percentage
-            $amount = $gradeFee->amount * ($proratePercentage / 100);
-
-            // Prepare fee data
-            $feeData = [
-                'student_id' => $student->id,
-                'fee_type_id' => $feeType->id,
-                'academic_year' => $academicYear,
-                'amount' => $amount,
-                'is_custom' => false,
-                'is_active' => true,
-                'is_inherited' => true,
-                'inherited_from_grade_fee_id' => $gradeFee->id,
-                'prorate_percentage' => $proratePercentage,
-                'status' => 'pending',
-                'effective_from' => $admissionDate,
-            ];
-
-            // Add month field for monthly fees
-            if ($feeType->type === 'monthly') {
-                $feeData['month'] = \Carbon\Carbon::parse($admissionDate)->format('F');
-            }
-
-            // Create student fee record
-            $studentFee = StudentFee::create($feeData);
-
-            $assignedFees[] = [
-                'fee_type' => $feeType->name,
-                'amount' => $amount,
-                'prorate_percentage' => $proratePercentage,
-                'reason' => $proratePercentage < 100 ? 'prorated' : 'full',
-            ];
         }
 
         return $assignedFees;
@@ -393,32 +361,6 @@ class StudentController extends Controller
         } else {
             return ($year - 1) . "-{$year}";
         }
-    }
-
-    /**
-     * Calculate prorate percentage based on admission day
-     * Always 100% - no mid-month discount
-     */
-    private function calculateProratePercentage(string $date): float
-    {
-        return 100.00;
-    }
-
-    /**
-     * Check if student has paid this fee type in any previous year (lifetime check)
-     */
-    private function checkLifetimePayment(int $studentId, int $feeTypeId): bool
-    {
-        // Check payment records that include this fee type
-        // Since fee_payments don't directly link to fee_type_id,
-        // we need to check student_fees that are linked to payments
-        return PaymentRecord::whereHas('feePayment', function ($query) use ($studentId) {
-                $query->where('student_id', $studentId);
-            })
-            ->whereHas('studentFee', function ($query) use ($feeTypeId) {
-                $query->where('fee_type_id', $feeTypeId);
-            })
-            ->exists();
     }
 
     public function show(Request $request, int $id): JsonResponse
@@ -639,6 +581,11 @@ class StudentController extends Controller
             ], 404);
         }
 
+        // Update fee_category_id if provided
+        if ($request->has('fee_category_id')) {
+            $student->update(['fee_category_id' => $request->fee_category_id]);
+        }
+
         $student->update(['status' => 'active']);
 
         $this->applyEnrollmentFees($student);
@@ -732,84 +679,33 @@ class StudentController extends Controller
 
         $gradeId = $student->section->grade_id;
         $academicYear = $this->getAcademicYear(now()->toDateString());
-        $currentMonth = now()->format('F');
+        $enrollmentDate = $student->admission_date ?? now()->toDateString();
 
-        $gradeFees = GradeFee::where('grade_id', $gradeId)
-            ->where('academic_year', $academicYear)
-            ->with('feeType')
+        // Get all active fee schedules for this grade
+        $schedules = \App\Models\FeeSchedule::where('institute_id', $student->institute_id)
+            ->where('grade_id', $gradeId)
+            ->where('is_active', true)
             ->get();
 
-        foreach ($gradeFees as $gradeFee) {
-            $feeType = $gradeFee->feeType;
-            if (!$feeType) {
-                continue;
+        foreach ($schedules as $schedule) {
+            // Check if schedule applies to this student's fee category
+            if ($schedule->fee_category_id && $schedule->fee_category_id != $student->fee_category_id) {
+                continue; // Skip - doesn't apply to this student
             }
 
-            if ($feeType->type === 'one_time') {
-                $existing = StudentFee::where('student_id', $student->id)
-                    ->where('fee_type_id', $gradeFee->fee_type_id)
-                    ->where('academic_year', $academicYear)
-                    ->first();
+            // Generate student fees for the entire academic year
+            $fees = $schedule->generateStudentFees($student->id, $enrollmentDate, $academicYear);
 
-                if (!$existing) {
-                    StudentFee::create([
-                        'student_id' => $student->id,
-                        'fee_type_id' => $gradeFee->fee_type_id,
-                        'academic_year' => $academicYear,
-                        'amount' => $gradeFee->amount,
-                        'is_custom' => false,
-                        'is_active' => true,
-                        'status' => 'pending',
-                        'effective_from' => $gradeFee->effective_from,
-                        'effective_to' => $gradeFee->effective_to,
-                    ]);
-                }
-            }
+            foreach ($fees as $feeData) {
+                // Check if already exists
+                $exists = \App\Models\StudentFee::where('student_id', $student->id)
+                    ->where('fee_type_id', $feeData['fee_type_id'])
+                    ->where('month', $feeData['month'])
+                    ->where('academic_year', $feeData['academic_year'])
+                    ->exists();
 
-            if ($feeType->type === 'annual') {
-                $existing = StudentFee::where('student_id', $student->id)
-                    ->where('fee_type_id', $gradeFee->fee_type_id)
-                    ->where('academic_year', $academicYear)
-                    ->first();
-
-                if (!$existing) {
-                    StudentFee::create([
-                        'student_id' => $student->id,
-                        'fee_type_id' => $gradeFee->fee_type_id,
-                        'academic_year' => $academicYear,
-                        'amount' => $gradeFee->amount,
-                        'is_custom' => false,
-                        'is_active' => true,
-                        'status' => 'pending',
-                        'effective_from' => $gradeFee->effective_from,
-                        'effective_to' => $gradeFee->effective_to,
-                    ]);
-                }
-            }
-
-            if ($feeType->type === 'monthly') {
-                $existing = StudentFee::where('student_id', $student->id)
-                    ->where('fee_type_id', $gradeFee->fee_type_id)
-                    ->where('academic_year', $academicYear)
-                    ->where('month', $currentMonth)
-                    ->first();
-
-                if (!$existing) {
-                    StudentFee::create([
-                        'student_id' => $student->id,
-                        'fee_type_id' => $gradeFee->fee_type_id,
-                        'academic_year' => $academicYear,
-                        'month' => $currentMonth,
-                        'amount' => $gradeFee->amount,
-                        'is_custom' => false,
-                        'is_active' => true,
-                        'status' => 'pending',
-                        'is_inherited' => true,
-                        'inherited_from_grade_fee_id' => $gradeFee->id,
-                        'prorate_percentage' => 100,
-                        'effective_from' => $gradeFee->effective_from,
-                        'effective_to' => $gradeFee->effective_to,
-                    ]);
+                if (!$exists) {
+                    \App\Models\StudentFee::create($feeData);
                 }
             }
         }

@@ -29,6 +29,8 @@ class StudentResource extends JsonResource
             'institute_id' => $this->institute_id,
             'section_id' => $this->section_id,
             'admission_date' => $this->admission_date,
+            'fee_category_id' => $this->fee_category_id,
+            'fee_category' => new FeeCategoryResource($this->whenLoaded('feeCategory')),
             'section' => new SectionResource($this->whenLoaded('section')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

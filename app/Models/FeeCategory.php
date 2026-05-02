@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class FeeType extends Model
+class FeeCategory extends Model
 {
     use HasFactory;
 
@@ -15,15 +15,11 @@ class FeeType extends Model
         'institute_id',
         'name',
         'code',
-        'type',
-        'due_day',
         'description',
         'is_active',
     ];
 
     protected $casts = [
-        'amount' => 'decimal:2',
-        'due_day' => 'integer',
         'is_active' => 'boolean',
     ];
 
@@ -32,13 +28,13 @@ class FeeType extends Model
         return $this->belongsTo(Institute::class);
     }
 
-    public function gradeFees(): HasMany
-    {
-        return $this->hasMany(GradeFee::class);
-    }
-
     public function studentFees(): HasMany
     {
         return $this->hasMany(StudentFee::class);
+    }
+
+    public function feeSchedules(): HasMany
+    {
+        return $this->hasMany(\App\Models\FeeSchedule::class);
     }
 }

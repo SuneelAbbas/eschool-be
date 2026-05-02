@@ -14,6 +14,7 @@ class StudentFee extends Model
     protected $fillable = [
         'student_id',
         'fee_type_id',
+        'fee_schedule_id',
         'academic_year',
         'amount',
         'is_custom',
@@ -51,6 +52,11 @@ class StudentFee extends Model
     public function gradeFee(): BelongsTo
     {
         return $this->belongsTo(GradeFee::class, 'inherited_from_grade_fee_id');
+    }
+
+    public function feeSchedule(): BelongsTo
+    {
+        return $this->belongsTo(FeeSchedule::class);
     }
 
     public function paymentRecords(): HasMany
