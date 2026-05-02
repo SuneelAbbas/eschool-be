@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             BankAccountSeeder::class,
             DiscountSeeder::class,
             ExamTypeSeeder::class,
+            FakerSeeder::class,
         ]);
     }
 }
