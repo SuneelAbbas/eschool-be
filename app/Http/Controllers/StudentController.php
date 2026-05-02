@@ -366,42 +366,17 @@ class StudentController extends Controller
     public function show(Request $request, int $id): JsonResponse
     {
         $user = $request->user();
-
-        $student = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
-            return $query->where('institute_id', $user->institute_id);
-        })->with(['section', 'feeCategory'])->find($id);
         
-        if (!$student) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Student not found',
-            ], 404);
-        }
-
-        return response()->json([
-            'success' => true,
-            'data' => new StudentResource($student),
-        ]);
-    }
-
-    /**
-     * Get all dashboard data for a student in single call
-     */
-    public function dashboardData(Request $request, int $id): JsonResponse
-    {
-        $user = $request->user();
-        $month = $request->input('month', now()->format('n'));
+        // Accept month filter (name or number)
+        $monthInput = $request->input('month', 'all');
+        $month = is_numeric($monthInput) 
+            ? date('F', mktime(0, 0, 0, (int)$monthInput, 1))
+            : $monthInput;
+        
         $year = $request->input('year', now()->format('Y'));
-        
-        // Academic year runs June to June (e.g., Apr 2026 is in 2025-2026 session)
-        $currentMonth = now()->month;
-        if ($currentMonth >= 6) {
-            $defaultAcademicYear = now()->year . '-' . (now()->year + 1);
-        } else {
-            $defaultAcademicYear = (now()->year - 1) . '-' . now()->year;
-        }
-        $academicYear = $request->input('academic_year', $defaultAcademicYear);
+        $academicYear = $request->input('academic_year', $this->getAcademicYear(now()->toDateString()));
 
+        // Load student
         $student = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
             return $query->where('institute_id', $user->institute_id);
         })->with(['section.grade', 'feeCategory'])->find($id);
@@ -414,11 +389,22 @@ class StudentController extends Controller
         }
 
         // Get fees with balance
-        $fees = StudentFee::with(['feeType', 'paymentRecords'])
+        $feesQuery = StudentFee::with(['feeType', 'feeSchedule', 'paymentRecords'])
             ->where('student_id', $id)
-            ->where('academic_year', $academicYear)
-            ->orderBy('created_at', 'desc')
-            ->get();
+            ->where('academic_year', $academicYear);
+        
+        // Filter by month if not 'all'
+        if (strtolower($month) !== 'all') {
+            $feesQuery->where(function ($q) use ($month) {
+                $q->where('month', $month)
+                   ->orWhere(function ($q2) {
+                       $q2->where('month', '')
+                           ->orWhereNull('month');
+                   });
+            });
+        }
+
+        $fees = $feesQuery->orderBy('created_at', 'desc')->get();
 
         $totalOwed = 0;
         $totalPaid = 0;
@@ -436,18 +422,21 @@ class StudentController extends Controller
                 'fee_type' => [
                     'name' => $fee->feeType?->name,
                     'code' => $fee->feeType?->code,
+                    'type' => $fee->feeType?->type,
                 ],
+                'fee_schedule_id' => $fee->fee_schedule_id,
                 'academic_year' => $fee->academic_year,
                 'month' => $fee->month,
                 'amount' => $feeAmount,
                 'paid' => $paidAmount,
                 'balance' => $feeAmount - $paidAmount,
                 'status' => $fee->status,
+                'effective_from' => $fee->effective_from?->format('Y-m-d'),
             ];
         });
 
         // Get payments
-        $payments = FeePayment::with(['receiver'])
+        $payments = \App\Models\FeePayment::with(['receiver'])
             ->where('student_id', $id)
             ->orderBy('payment_date', 'desc')
             ->limit(20)
@@ -456,9 +445,10 @@ class StudentController extends Controller
                 return [
                     'id' => $payment->id,
                     'receipt_number' => $payment->receipt_number,
-                    'amount' => $payment->amount,
+                    'amount' => (float) $payment->amount,
                     'payment_date' => $payment->payment_date,
                     'payment_method' => $payment->payment_method,
+                    'bank_reference' => $payment->bank_reference,
                     'receiver' => $payment->receiver ? [
                         'first_name' => $payment->receiver->first_name,
                         'last_name' => $payment->receiver->last_name,
@@ -466,18 +456,18 @@ class StudentController extends Controller
                 ];
             });
 
+        // Attendance summary
         try {
-            // Get attendance summary - simplified direct approach
-            $monthInt = (int) $month;
+            $monthNum = (int) date('n', strtotime($month));
             $yearInt = (int) $year;
-            $fromDate = $yearInt . '-' . str_pad($monthInt, 2, '0', STR_PAD_LEFT) . '-01';
-            $toDate = \Carbon\Carbon::createFromDate($yearInt, $monthInt)->endOfMonth()->format('Y-m-d');
-            
+            $fromDate = $yearInt . '-' . str_pad($monthNum, 2, '0', STR_PAD_LEFT) . '-01';
+            $toDate = \Carbon\Carbon::create($yearInt, $monthNum)->endOfMonth()->format('Y-m-d');
+
             $records = \DB::table('attendance')
                 ->where('student_id', $id)
                 ->whereBetween('date', [$fromDate, $toDate])
                 ->get();
-            
+
             $present = 0; $absent = 0; $late = 0; $excused = 0;
             foreach ($records as $r) {
                 if ($r->status === 'present') $present++;
@@ -505,6 +495,7 @@ class StudentController extends Controller
                 ],
                 'payments' => $payments,
                 'attendance' => [
+                    'month' => $month,
                     'present' => $present,
                     'absent' => $absent,
                     'late' => $late,
@@ -514,6 +505,14 @@ class StudentController extends Controller
                 ],
             ],
         ]);
+    }
+
+    /**
+     * @deprecated Use GET /students/{id} with query params instead
+     */
+    public function dashboardData(Request $request, int $id): JsonResponse
+    {
+        return $this->show($request, $id);
     }
 
     public function update(StudentRequest $request, int $id): JsonResponse
