@@ -36,7 +36,7 @@ class FeeScheduleController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $schedules,
+            'data' => \App\Http\Resources\FeeScheduleResource::collection($schedules),
         ]);
     }
 
@@ -79,7 +79,7 @@ class FeeScheduleController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $schedule,
+            'data' => new \App\Http\Resources\FeeScheduleResource($schedule),
         ]);
     }
 
