@@ -16,9 +16,13 @@ class StudentSeeder extends Seeder
             return;
         }
 
-        // Get fee categories
-        $newCategoryId = DB::table('fee_categories')->where('code', 'NEW')->value('id');
-        $oldCategoryId = DB::table('fee_categories')->where('code', 'OLD')->value('id');
+        // Get ALL fee category IDs for random assignment
+        $feeCategoryIds = DB::table('fee_categories')->pluck('id')->toArray();
+
+        if (empty($feeCategoryIds)) {
+            $this->command->warn('No fee categories found. Please run FeeCategorySeeder first.');
+            return;
+        }
 
         $sections = DB::table('sections')
             ->where('institute_id', $instituteId)
@@ -35,7 +39,7 @@ class StudentSeeder extends Seeder
         $grade11SectionA = $sections->firstWhere('name', '11-A');
 
         $students = [
-            // Grade 9-A (New Students - pay admission fee)
+            // Grade 9-A
             [
                 'first_name' => 'Fatima',
                 'last_name' => 'Iqbal',
@@ -51,7 +55,6 @@ class StudentSeeder extends Seeder
                 'blood_group' => 'A+',
                 'address' => 'House 12, Block B, Satellite Town, Gilgit',
                 'section_id' => $grade9SectionA->id ?? null,
-                'fee_category_id' => $newCategoryId,
             ],
             [
                 'first_name' => 'Ali',
@@ -68,7 +71,6 @@ class StudentSeeder extends Seeder
                 'blood_group' => 'O+',
                 'address' => 'House 5, Block C, Jutial, Gilgit',
                 'section_id' => $grade9SectionA->id ?? null,
-                'fee_category_id' => $newCategoryId,
             ],
             [
                 'first_name' => 'Sara',
@@ -85,10 +87,9 @@ class StudentSeeder extends Seeder
                 'blood_group' => 'B+',
                 'address' => 'House 8, Block A, Civil Lines, Gilgit',
                 'section_id' => $grade9SectionA->id ?? null,
-                'fee_category_id' => $newCategoryId,
             ],
 
-            // Grade 9-B (Old Students - no admission fee)
+            // Grade 9-B
             [
                 'first_name' => 'Aisha',
                 'last_name' => 'Nawaz',
@@ -104,7 +105,6 @@ class StudentSeeder extends Seeder
                 'blood_group' => 'AB+',
                 'address' => 'House 15, Block D, Alnoor Colony, Gilgit',
                 'section_id' => $grade9SectionB->id ?? null,
-                'fee_category_id' => $oldCategoryId,
             ],
             [
                 'first_name' => 'Hamza',
@@ -121,7 +121,6 @@ class StudentSeeder extends Seeder
                 'blood_group' => 'A-',
                 'address' => 'House 3, Block E, Sharah-e-Quaid, Gilgit',
                 'section_id' => $grade9SectionB->id ?? null,
-                'fee_category_id' => $oldCategoryId,
             ],
 
             // Grade 10-A
@@ -140,7 +139,6 @@ class StudentSeeder extends Seeder
                 'blood_group' => 'O-',
                 'address' => 'House 22, Block F, Airport Road, Gilgit',
                 'section_id' => $grade10SectionA->id ?? null,
-                'fee_category_id' => $oldCategoryId,
             ],
             [
                 'first_name' => 'Zara',
@@ -157,7 +155,6 @@ class StudentSeeder extends Seeder
                 'blood_group' => 'B-',
                 'address' => 'House 18, Block G, Hospital Road, Gilgit',
                 'section_id' => $grade10SectionA->id ?? null,
-                'fee_category_id' => $oldCategoryId,
             ],
             [
                 'first_name' => 'Hassan',
@@ -174,7 +171,6 @@ class StudentSeeder extends Seeder
                 'blood_group' => 'A+',
                 'address' => 'House 7, Block H, GPO Road, Gilgit',
                 'section_id' => $grade10SectionA->id ?? null,
-                'fee_category_id' => $oldCategoryId,
             ],
 
             // Grade 11-A
@@ -193,7 +189,6 @@ class StudentSeeder extends Seeder
                 'blood_group' => 'O+',
                 'address' => 'House 25, Block I, Danyore, Gilgit',
                 'section_id' => $grade11SectionA->id ?? null,
-                'fee_category_id' => $oldCategoryId,
             ],
             [
                 'first_name' => 'Usman',
@@ -210,13 +205,13 @@ class StudentSeeder extends Seeder
                 'blood_group' => 'AB-',
                 'address' => 'House 30, Block J, Sikandarabad, Gilgit',
                 'section_id' => $grade11SectionA->id ?? null,
-                'fee_category_id' => $oldCategoryId,
             ],
         ];
 
         $now = now();
         foreach ($students as &$student) {
             $student['institute_id'] = $instituteId;
+            $student['fee_category_id'] = $feeCategoryIds[array_rand($feeCategoryIds)]; // Random category
             $student['created_at'] = $now;
             $student['updated_at'] = $now;
         }
