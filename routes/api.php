@@ -242,6 +242,10 @@ Route::delete('/exam-types/{id}', [ExamTypeController::class, 'destroy']);
         Route::put('/fee-schedules/{id}', [FeeScheduleController::class, 'update']);
         Route::delete('/fee-schedules/{id}', [FeeScheduleController::class, 'destroy']);
         Route::post('/fee-schedules/generate-student-fees', [FeeScheduleController::class, 'generateStudentFees']);
+
+        // Fee Slips (Generate with transaction_id for bank payments)
+        Route::post('/fee-slips/generate', [FeeSlipController::class, 'generateBulk']);
+        Route::post('/fee-slips/generate/{studentId}', [FeeSlipController::class, 'generateSingle']);
     });
 
     // Role & Permission Routes (Admin only)
