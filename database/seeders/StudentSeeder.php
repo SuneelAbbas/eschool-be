@@ -216,7 +216,11 @@ class StudentSeeder extends Seeder
             $student['updated_at'] = $now;
         }
 
-        DB::table('students')->insertOrIgnore($students);
-        $this->command->info('StudentSeeder: ' . count($students) . ' students seeded.');
+        try {
+            DB::table('students')->insert($students);
+            $this->command->info('StudentSeeder: ' . count($students) . ' students seeded.');
+        } catch (\Exception $e) {
+            $this->command->error('StudentSeeder error: ' . $e->getMessage());
+        }
     }
 }

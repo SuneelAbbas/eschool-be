@@ -1,0 +1,154 @@
+﻿
+  Dropping all tables .................................................................................. 719.66ms DONE
+
+   INFO  Preparing database.  
+
+  Creating migration table ............................................................................. 160.12ms DONE
+
+   INFO  Running migrations.  
+
+  0001_01_01_000000_create_users_table ................................................................. 506.81ms DONE
+  0001_01_01_000001_create_cache_table ................................................................. 206.24ms DONE
+  0001_01_01_000002_create_jobs_table .................................................................. 515.71ms DONE
+  0001_01_01_000003_add_api_token_to_users_table ....................................................... 134.50ms DONE
+  2026_04_12_000001_create_plans_table ................................................................. 126.62ms DONE
+  2026_04_12_000002_create_institutes_table ............................................................ 124.15ms DONE
+  2026_04_12_000003_create_grades_table ................................................................ 229.02ms DONE
+  2026_04_12_000004_create_sections_table .............................................................. 197.78ms DONE
+  2026_04_12_000005_create_class_sections_table ........................................................ 158.32ms DONE
+  2026_04_12_000006_create_students_table .............................................................. 190.49ms DONE
+  2026_04_12_000007_create_teachers_table .............................................................. 174.71ms DONE
+  2026_04_12_000008_create_parents_table ............................................................... 146.11ms DONE
+  2026_04_12_000009_create_teacher_section_table ....................................................... 146.08ms DONE
+  2026_04_12_000010_create_attendance_table ............................................................ 198.28ms DONE
+  2026_04_12_000011_create_subjects_table .............................................................. 288.44ms DONE
+  2026_04_12_000012_add_subject_to_teacher_section_table ............................................... 215.35ms DONE
+  2026_04_12_000013_make_subjects_institute_nullable ................................................... 145.23ms DONE
+  2026_04_12_064826_create_personal_access_tokens_table ................................................ 297.72ms DONE
+  2026_04_12_999995_add_section_institute_and_unique ................................................... 263.31ms DONE
+  2026_04_12_999996_add_grade_name_unique_constraint .................................................... 30.46ms DONE
+  2026_04_12_999997_add_student_reg_no_unique_constraint ................................................ 36.95ms DONE
+  2026_04_12_999998_add_teacher_cnic_unique_constraint .................................................. 39.28ms DONE
+  2026_04_12_999999_add_all_foreign_keys ..................................................................... 2s DONE
+  2026_04_13_000001_create_fee_types_table ............................................................. 500.49ms DONE
+  2026_04_13_000002_create_grade_fees_table .................................................................. 1s DONE
+  2026_04_13_000003_create_student_fees_table .......................................................... 354.45ms DONE
+  2026_04_13_000004_create_discounts_table ............................................................. 229.47ms DONE
+  2026_04_13_000005_create_fee_payments_table .......................................................... 493.15ms DONE
+  2026_04_13_000006_create_student_discounts_table ..................................................... 300.03ms DONE
+  2026_04_13_000007_create_payment_records_table ............................................................. 1s DONE
+  2026_04_13_100001_create_exam_types_table ............................................................ 275.38ms DONE
+  2026_04_13_100002_create_exams_table ....................................................................... 1s DONE
+  2026_04_13_100003_create_exam_subjects_table ......................................................... 350.50ms DONE
+  2026_04_13_100004_create_exam_results_table .......................................................... 503.59ms DONE
+  2026_04_13_100005_create_report_cards_table .......................................................... 563.78ms DONE
+  2026_04_13_100007_create_grade_subjects_table .............................................................. 1s DONE
+  2026_04_14_100001_create_permissions_table ........................................................... 176.96ms DONE
+  2026_04_14_100002_create_roles_table ................................................................. 142.51ms DONE
+  2026_04_14_100003_create_role_permissions_table ...................................................... 318.53ms DONE
+  2026_04_14_100004_create_user_roles_table .................................................................. 1s DONE
+  2026_04_14_100005_create_permission_user_table ............................................................. 1s DONE
+  2026_04_14_100006_add_status_to_users_table .......................................................... 263.57ms DONE
+  2026_04_14_171347_add_is_system_to_roles_table ........................................................ 30.44ms DONE
+  2026_04_15_183326_add_barcode_and_bank_fields_to_fee_payments_table .................................. 623.65ms DONE
+  2026_04_15_183326_create_bank_accounts_table ......................................................... 246.59ms DONE
+  2026_04_15_185419_add_status_to_students_table ........................................................ 80.05ms DONE
+  2026_04_16_000001_add_academic_year_to_fees_tables ................................................... 333.44ms DONE
+  2026_04_17_000001_add_student_fee_tracking_fields .......................................................... 2s DONE
+  2026_04_17_180727_add_month_to_student_fees_table ..................................................... 99.13ms DONE
+  2026_04_18_000001_add_unique_constraint_class_teacher ................................................. 50.92ms DONE
+  2026_04_18_000002_drop_class_teacher_unique_constraint ................................................ 20.05ms DONE
+  2026_04_19_000001_add_admission_date_to_students_table ................................................ 77.55ms DONE
+  2026_04_25_000001_create_pending_receipts_table ...................................................... 607.83ms DONE
+  2026_05_01_000001_add_current_academic_year_to_institutes_table ...................................... 404.83ms DONE
+  2026_05_02_000001_update_fee_types_remove_amount ...................................................... 95.45ms DONE
+  2026_05_02_000002_create_fee_categories_table ........................................................ 306.78ms DONE
+  2026_05_02_000003_create_fee_schedules_table ......................................................... 699.02ms DONE
+  2026_05_02_000004_add_fee_category_to_students_table ................................................. 557.69ms DONE
+  2026_05_02_000005_add_fee_schedule_to_student_fees_table ............................................. 364.55ms DONE
+
+
+   INFO  Seeding database.  
+
+  Database\Seeders\PlanSeeder ................................................................................ RUNNING  
+  Database\Seeders\PlanSeeder ............................................................................. 30 ms DONE  
+
+  Database\Seeders\PermissionSeeder .......................................................................... RUNNING  
+  Database\Seeders\PermissionSeeder .................................................................... 1,793 ms DONE  
+
+  Database\Seeders\RoleSeeder ................................................................................ RUNNING  
+  Database\Seeders\RoleSeeder .......................................................................... 3,549 ms DONE  
+
+  Database\Seeders\InstituteSeeder ........................................................................... RUNNING  
+Created institute: Demo School (ID: 1)
+Created admin user: admin@eschool.pk / password123
+Assigned 'admin' role to user
+  Database\Seeders\InstituteSeeder ....................................................................... 468 ms DONE  
+
+  Database\Seeders\GradeSeeder ............................................................................... RUNNING  
+  Database\Seeders\GradeSeeder ............................................................................ 35 ms DONE  
+
+  Database\Seeders\SectionSeeder ............................................................................. RUNNING  
+  Database\Seeders\SectionSeeder ......................................................................... 148 ms DONE  
+
+  Database\Seeders\StudentSeeder ............................................................................. RUNNING  
+No fee categories found. Please run FeeCategorySeeder first.
+  Database\Seeders\StudentSeeder ........................................................................... 8 ms DONE  
+
+  Database\Seeders\SubjectSeeder ............................................................................. RUNNING  
+Processing institute: Demo School
+Found 12 grades
+Created/Updated 28 subjects.
+Linked 124 subject-grade combinations for Demo School
+Subjects seeded successfully with grade-specific curriculum!
+  Database\Seeders\SubjectSeeder ....................................................................... 3,238 ms DONE  
+
+  Database\Seeders\FeeTypeSeeder ............................................................................. RUNNING  
+Created 8 fee types for institute: Demo School (ID: 1)
+Total fee types created: 8
+  Database\Seeders\FeeTypeSeeder ......................................................................... 146 ms DONE  
+
+  Database\Seeders\FeeCategorySeeder ......................................................................... RUNNING  
+Created 4 fee categories for institute: Demo School
+Total fee categories created: 4
+  Database\Seeders\FeeCategorySeeder ...................................................................... 61 ms DONE  
+
+  Database\Seeders\FeeScheduleSeeder ......................................................................... RUNNING  
+Created fee schedules for institute: Demo School
+Total fee schedules created: 84
+  Database\Seeders\FeeScheduleSeeder ................................................................... 1,553 ms DONE  
+
+  Database\Seeders\BankAccountSeeder ......................................................................... RUNNING  
+  Database\Seeders\BankAccountSeeder ...................................................................... 64 ms DONE  
+
+  Database\Seeders\DiscountSeeder ............................................................................ RUNNING  
+  Database\Seeders\DiscountSeeder ........................................................................ 102 ms DONE  
+
+  Database\Seeders\ExamTypeSeeder ............................................................................ RUNNING  
+  Database\Seeders\ExamTypeSeeder ........................................................................ 226 ms DONE  
+
+  Database\Seeders\FakerSeeder ............................................................................... RUNNING  
+Generating fake data for institute ID: 1
+
+
+   Illuminate\Database\UniqueConstraintViolationException 
+
+  SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry '1-Grade 1' for key 'grades.grades_institute_name_unique' (Connection: mysql, Host: 127.0.0.1, Port: 3306, Database: eschool_db, SQL: insert into `grades` (`name`, `description`, `institute_id`, `created_at`, `updated_at`) values (Grade 1, Aut exercitationem est nisi laborum voluptatum., 1, 2026-05-07 13:08:35, 2026-05-07 13:08:35))
+
+  at vendor\laravel\framework\src\Illuminate\Database\Connection.php:838
+    834Ôûò             $exceptionType = $this->isUniqueConstraintError($e)
+    835Ôûò                 ? UniqueConstraintViolationException::class
+    836Ôûò                 : QueryException::class;
+    837Ôûò 
+  Ô×£ 838Ôûò             throw new $exceptionType(
+    839Ôûò                 $this->getNameWithReadWriteType(),
+    840Ôûò                 $query,
+    841Ôûò                 $this->prepareBindings($bindings),
+    842Ôûò                 $e,
+
+  1   vendor\laravel\framework\src\Illuminate\Database\MySqlConnection.php:53
+      PDOException::("SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry '1-Grade 1' for key 'grades.grades_institute_name_unique'")
+
+  2   vendor\laravel\framework\src\Illuminate\Database\MySqlConnection.php:53
+      PDOStatement::execute()
+
