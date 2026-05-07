@@ -125,6 +125,26 @@ class FeeScheduleController extends Controller
         ]);
     }
 
+    public function bulkDestroy(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        
+        $validated = $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer|exists:fee_schedules,id',
+        ]);
+
+        $deleted = FeeSchedule::where('institute_id', $user->institute_id)
+            ->whereIn('id', $validated['ids'])
+            ->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$deleted} fee schedule(s) deleted successfully",
+            'data' => ['deleted' => $deleted],
+        ]);
+    }
+
     /**
      * Generate student fees for all students in a grade based on schedules
      */

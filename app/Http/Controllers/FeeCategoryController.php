@@ -96,4 +96,24 @@ class FeeCategoryController extends Controller
             'message' => 'Fee category deleted successfully',
         ]);
     }
+
+    public function bulkDestroy(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        
+        $validated = $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer|exists:fee_categories,id',
+        ]);
+
+        $deleted = FeeCategory::where('institute_id', $user->institute_id)
+            ->whereIn('id', $validated['ids'])
+            ->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$deleted} fee category(ies) deleted successfully",
+            'data' => ['deleted' => $deleted],
+        ]);
+    }
 }

@@ -22,6 +22,7 @@ use App\Http\Controllers\ReportCardController;
 use App\Http\Controllers\FeeTypeController;
 use App\Http\Controllers\FeeCategoryController;
 use App\Http\Controllers\FeeScheduleController;
+use App\Http\Controllers\FeeSlipController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/institute-register', [AuthController::class, 'register']);
@@ -87,11 +88,15 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::middleware('role:admin,teacher,accountant')->group(function () {
+        // V2 - Lightweight student list (recommended)
+        Route::get('/v2/students', [StudentController::class, 'indexV2']);
+        // V1 - Full student data (legacy)
         Route::get('/students', [StudentController::class, 'index']);
         Route::get('/students/stats', [StudentController::class, 'stats']);
         Route::post('/students', [StudentController::class, 'store']);
         Route::get('/students/generate-reg-number', [StudentController::class, 'generateRegNumber']);
         Route::get('/students/{id}', [StudentController::class, 'show']);
+        Route::get('/students/{id}/edit', [StudentController::class, 'edit']);
         Route::put('/students/{id}', [StudentController::class, 'update']);
         Route::delete('/students/{id}', [StudentController::class, 'destroy']);
         Route::post('/students/{id}/enroll', [StudentController::class, 'enroll']);
@@ -224,6 +229,7 @@ Route::delete('/exam-types/{id}', [ExamTypeController::class, 'destroy']);
         // Fee Types (Fee Head Definitions)
         Route::get('/fee-types', [FeeTypeController::class, 'index']);
         Route::post('/fee-types', [FeeTypeController::class, 'store']);
+        Route::delete('/fee-types/bulk-delete', [FeeTypeController::class, 'bulkDestroy']);
         Route::get('/fee-types/{id}', [FeeTypeController::class, 'show']);
         Route::put('/fee-types/{id}', [FeeTypeController::class, 'update']);
         Route::delete('/fee-types/{id}', [FeeTypeController::class, 'destroy']);
@@ -231,13 +237,17 @@ Route::delete('/exam-types/{id}', [ExamTypeController::class, 'destroy']);
         // Fee Categories (New, Old, RTE, etc.)
         Route::get('/fee-categories', [FeeCategoryController::class, 'index']);
         Route::post('/fee-categories', [FeeCategoryController::class, 'store']);
+        Route::delete('/fee-categories/bulk-delete', [FeeCategoryController::class, 'bulkDestroy']);
         Route::get('/fee-categories/{id}', [FeeCategoryController::class, 'show']);
         Route::put('/fee-categories/{id}', [FeeCategoryController::class, 'update']);
         Route::delete('/fee-categories/{id}', [FeeCategoryController::class, 'destroy']);
+        Route::delete('/fee-categories/bulk-delete', [FeeCategoryController::class, 'bulkDestroy']);
 
         // Fee Schedules (Mapping fees to grades with frequency)
         Route::get('/fee-schedules', [FeeScheduleController::class, 'index']);
         Route::post('/fee-schedules', [FeeScheduleController::class, 'store']);
+        Route::delete('/fee-schedules/bulk-delete', [FeeScheduleController::class, 'bulkDestroy']);
+        Route::post('/fee-schedules/generate-student-fees', [FeeScheduleController::class, 'generateStudentFees']);
         Route::get('/fee-schedules/{id}', [FeeScheduleController::class, 'show']);
         Route::put('/fee-schedules/{id}', [FeeScheduleController::class, 'update']);
         Route::delete('/fee-schedules/{id}', [FeeScheduleController::class, 'destroy']);

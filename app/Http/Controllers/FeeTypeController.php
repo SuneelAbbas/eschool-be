@@ -104,4 +104,24 @@ class FeeTypeController extends Controller
             'message' => 'Fee type deleted successfully',
         ]);
     }
+
+    public function bulkDestroy(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        
+        $validated = $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer|exists:fee_types,id',
+        ]);
+
+        $deleted = FeeType::where('institute_id', $user->institute_id)
+            ->whereIn('id', $validated['ids'])
+            ->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$deleted} fee type(s) deleted successfully",
+            'data' => ['deleted' => $deleted],
+        ]);
+    }
 }

@@ -222,6 +222,58 @@ class StudentController extends Controller
         ]);
     }
 
+    /**
+     * V2: Lightweight student list - returns only essential fields
+     */
+    public function indexV2(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $perPage = $request->input('per_page', 15);
+        $search = $request->input('search');
+        $sectionId = $request->input('section_id');
+        $gradeId = $request->input('grade_id');
+        $status = $request->input('status');
+
+        $query = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->select('id', 'first_name', 'last_name', 'registration_number', 'roll_no', 'section_id', 'status', 'gender');
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('registration_number', 'like', "%{$search}%");
+            });
+        }
+
+        if ($sectionId) {
+            $query->where('section_id', $sectionId);
+        }
+
+        if ($gradeId) {
+            $query->whereHas('section', function ($q) use ($gradeId) {
+                $q->where('grade_id', $gradeId);
+            });
+        }
+
+        if ($status) {
+            $query->where('status', $status);
+        }
+
+        $students = $query->with('section:id,name,grade_id')->orderBy('id', 'desc')->paginate($perPage);
+
+        return response()->json([
+            'success' => true,
+            'data' => $students->items(),
+            'meta' => [
+                'current_page' => $students->currentPage(),
+                'last_page' => $students->lastPage(),
+                'per_page' => $students->perPage(),
+                'total' => $students->total(),
+            ],
+        ]);
+    }
+
     public function stats(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -361,6 +413,57 @@ class StudentController extends Controller
         } else {
             return ($year - 1) . "-{$year}";
         }
+    }
+
+    /**
+     * Edit form prefill - returns only core student fields (no fees/payments/attendance)
+     */
+    public function edit(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+        
+        $student = Student::when(!$user->isSuperAdmin(), function ($query) use ($user) {
+            return $query->where('institute_id', $user->institute_id);
+        })->select(
+            'id', 'first_name', 'last_name', 'email', 'registration_date',
+            'registration_number', 'roll_no', 'gender', 'mobile_number',
+            'parents_name', 'parents_mobile_number', 'date_of_birth',
+            'blood_group', 'address', 'institute_id', 'section_id',
+            'admission_date', 'fee_category_id', 'status', 'created_at', 'updated_at'
+        )->with(['section:id,name,grade_id', 'feeCategory:id,name,code'])->find($id);
+
+        if (!$student) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Student not found',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id' => $student->id,
+                'first_name' => $student->first_name,
+                'last_name' => $student->last_name,
+                'email' => $student->email,
+                'registration_date' => $student->registration_date,
+                'registration_number' => $student->registration_number,
+                'roll_no' => $student->roll_no,
+                'gender' => $student->gender,
+                'mobile_number' => $student->mobile_number,
+                'parents_name' => $student->parents_name,
+                'parents_mobile_number' => $student->parents_mobile_number,
+                'date_of_birth' => $student->date_of_birth,
+                'blood_group' => $student->blood_group,
+                'address' => $student->address,
+                'section_id' => $student->section_id,
+                'admission_date' => $student->admission_date,
+                'fee_category_id' => $student->fee_category_id,
+                'status' => $student->status,
+                'section' => $student->section,
+                'fee_category' => $student->feeCategory,
+            ],
+        ]);
     }
 
     public function show(Request $request, int $id): JsonResponse
