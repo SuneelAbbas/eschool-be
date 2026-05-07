@@ -104,9 +104,14 @@ class FeeSchedule extends Model
                 break;
 
             case 'monthly':
-                // Create fee records for each month from enrollment to end of academic year
-                $endOfYear = \Carbon\Carbon::parse(explode('-', $academicYear)[1] . '-03-31');
-                $currentMonth = $startDate->copy()->startOfMonth();
+                // Create fee records for July to June (academic year)
+                $yearParts = explode('-', $academicYear);
+                $startOfAcademicYear = \Carbon\Carbon::parse($yearParts[0] . '-07-01');  // July start
+                $endOfYear = \Carbon\Carbon::parse($yearParts[1] . '-06-30');  // June end
+                
+                // Always start from academic year start (July), regardless of enrollment
+                // This ensures fees start from the beginning of the academic year
+                $currentMonth = $startOfAcademicYear->copy()->startOfMonth();
                 
                 while ($currentMonth->lte($endOfYear)) {
                     $fees[] = [

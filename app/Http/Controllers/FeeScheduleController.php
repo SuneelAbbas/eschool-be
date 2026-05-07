@@ -8,6 +8,7 @@ use App\Models\Grade;
 use App\Models\FeeCategory;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 class FeeScheduleController extends Controller
 {
@@ -160,10 +161,17 @@ class FeeScheduleController extends Controller
         $grade = Grade::where('institute_id', $user->institute_id)
             ->findOrFail($validated['grade_id']);
 
-        // Get all active schedules for this grade
+        // Calculate date range for academic year (June to June)
+        $yearParts = explode('-', $validated['academic_year']);
+        $startDate = $yearParts[0] . '-07-01';  // June start
+        $endDate = $yearParts[1] . '-06-30';    // June end
+
+        // Get active schedules that fall within this academic year
         $schedules = FeeSchedule::where('institute_id', $user->institute_id)
             ->where('grade_id', $validated['grade_id'])
             ->where('is_active', true)
+            ->where('applicable_from', '>=', $startDate)
+            ->where('applicable_from', '<=', $endDate)
             ->with('feeType')
             ->get();
 
@@ -203,21 +211,279 @@ class FeeScheduleController extends Controller
                         ->exists();
 
                     if (!$exists) {
-                        \App\Models\StudentFee::create($feeData);
-                        $generatedCount++;
+                        try {
+                            \App\Models\StudentFee::create($feeData);
+                            $generatedCount++;
+                        } catch (\Illuminate\Database\QueryException $e) {
+                            // Skip if duplicate - another process may have created it
+                            if ($e->getCode() == 23000) {
+                                continue; // Skip this fee
+                            }
+                            throw $e; // Re-throw other errors
+                        }
                     }
                 }
             }
             $skippedCount++;
         }
 
+// Build appropriate message
+        if ($students->isEmpty()) {
+            $message = 'No active students found in this grade. Please add students and assign them to sections first.';
+            $success = false;
+        } elseif ($schedules->isEmpty()) {
+            $message = 'No active fee schedules found for this grade. Please set up fee structure first using /fee-structure/grade/{id}/save';
+            $success = false;
+        } elseif ($generatedCount === 0 && $skippedCount > 0) {
+            $message = 'Student fees already exist. No new fees were generated.';
+            $success = true;
+        } else {
+            $message = "Student fees generated successfully. Created {$generatedCount} fee records for {$skippedCount} students.";
+            $success = true;
+        }
+
         return response()->json([
-            'success' => true,
-            'message' => 'Student fees generated successfully',
+            'success' => $success,
+            'message' => $message,
             'data' => [
                 'generated' => $generatedCount,
-                'students_processed' => $students->count(),
+                'students_processed' => $skippedCount,
             ],
         ]);
+    }
+
+    /**
+     * Save all fee schedules for a grade at once (bulk)
+     */
+    public function saveGradeFees(Request $request, int $gradeId): JsonResponse
+    {
+        $user = $request->user();
+
+        // Validate grade belongs to user
+        $grade = Grade::where('institute_id', $user->institute_id)
+            ->findOrFail($gradeId);
+
+        $validated = $request->validate([
+            'academic_year' => 'required|string|size:9',
+            'fees' => 'required|array|min:1',
+            'fees.*.fee_type_id' => 'required|integer|exists:fee_types,id',
+            'fees.*.amount' => 'required|numeric|min:0',
+            'fees.*.frequency' => 'required|in:monthly,quarterly,annual,one_time',
+            'fees.*.fee_category_id' => 'nullable|integer|exists:fee_categories,id',
+            'fees.*.applicable_from' => 'nullable|date',
+            'fees.*.applicable_to' => 'nullable|date',
+            'fees.*.month' => 'nullable|string',
+            'fees.*.is_active' => 'nullable|boolean',
+        ]);
+
+        // Parse academic year to get start/end dates
+        $yearParts = explode('-', $validated['academic_year']);
+        $startDate = $yearParts[0] . '-07-01'; // April start
+        $endDate = $yearParts[1] . '-06-30';   // March end
+
+        $created = 0;
+        $updated = 0;
+        $schedules = [];
+
+        foreach ($validated['fees'] as $feeData) {
+            // Check if schedule already exists for this grade + fee_type + date range
+            $existing = FeeSchedule::where('grade_id', $gradeId)
+                ->where('fee_type_id', $feeData['fee_type_id'])
+                ->where('applicable_from', '>=', $startDate)
+                ->where('applicable_from', '<=', $endDate)
+                ->first();
+
+            $scheduleData = [
+                'institute_id' => $user->institute_id,
+                'grade_id' => $gradeId,
+                'fee_type_id' => $feeData['fee_type_id'],
+                'fee_category_id' => $feeData['fee_category_id'] ?? null,
+                'amount' => $feeData['amount'],
+                'frequency' => $feeData['frequency'],
+                'applicable_from' => $feeData['applicable_from'] ?? $startDate,
+                'applicable_to' => $feeData['applicable_to'] ?? $endDate,
+                'is_active' => $feeData['is_active'] ?? true,
+            ];
+
+            // Handle month for one-time/annual fees
+            if (in_array($feeData['frequency'], ['one_time', 'annual']) && !empty($feeData['month'])) {
+                $scheduleData['applicable_from'] = $yearParts[0] . '-' . $this->getMonthNumber($feeData['month']) . '-01';
+                $scheduleData['applicable_to'] = $scheduleData['applicable_from'];
+            }
+
+            if ($existing) {
+                $existing->update($scheduleData);
+                $updated++;
+                $schedules[] = $existing->fresh(['grade', 'feeType', 'feeCategory']);
+            } else {
+                $schedule = FeeSchedule::create($scheduleData);
+                $created++;
+                $schedules[] = $schedule->load(['grade', 'feeType', 'feeCategory']);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Fee structure saved for Grade {$grade->name}. Created: {$created}, Updated: {$updated}",
+            'data' => [
+                'grade_id' => $gradeId,
+                'grade_name' => $grade->name,
+                'academic_year' => $validated['academic_year'],
+                'total_fees' => count($validated['fees']),
+                'created' => $created,
+                'updated' => $updated,
+                'schedules' => \App\Http\Resources\FeeScheduleResource::collection(collect($schedules)),
+            ],
+        ]);
+    }
+
+    /**
+     * Get fee structure for all grades with pagination and filters
+     */
+    public function getAllGradesFees(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $perPage = $request->input('per_page', 10);
+        $academicYear = $request->input('academic_year');
+        $hasFees = $request->input('has_fees'); // true = only grades with fees
+
+        // Get all grades for this institute
+        $gradesQuery = Grade::where('institute_id', $user->institute_id);
+
+        // Get grades with their fee counts
+        $grades = $gradesQuery->get();
+        
+        $gradeIds = $grades->pluck('id')->toArray();
+        
+        // Get fee schedule counts per grade
+        $feeCountsQuery = FeeSchedule::whereIn('grade_id', $gradeIds)
+            ->when($academicYear, function ($q) use ($academicYear) {
+                $yearParts = explode('-', $academicYear);
+                $startDate = $yearParts[0] . '-07-01';
+                $endDate = $yearParts[1] . '-06-30';
+                $q->where('applicable_from', '>=', $startDate)
+                  ->where('applicable_from', '<=', $endDate);
+            })
+            ->groupBy('grade_id')
+            ->select('grade_id', DB::raw('COUNT(*) as total_fees'));
+
+        $feeCounts = $feeCountsQuery->pluck('total_fees', 'grade_id')->toArray();
+
+        // Filter grades based on has_fees
+        if ($hasFees === 'true') {
+            $gradeIds = array_keys(array_filter($feeCounts, fn($count) => $count > 0));
+            $grades = $grades->whereIn('id', $gradeIds);
+        }
+
+        // Paginate
+        $total = $grades->count();
+        $page = $request->input('page', 1);
+        $offset = ($page - 1) * $perPage;
+        $paginatedGrades = $grades->slice($offset, $perPage)->values();
+
+        $gradeData = $paginatedGrades->map(function ($grade) use ($feeCounts) {
+            return [
+                'grade_id' => $grade->id,
+                'grade_name' => $grade->name,
+                'numeric_value' => $grade->numeric_value,
+                'total_fees' => $feeCounts[$grade->id] ?? 0,
+                'has_fees' => ($feeCounts[$grade->id] ?? 0) > 0,
+            ];
+        });
+
+        // Sort by numeric value
+        $gradeData = $gradeData->sortBy('numeric_value')->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $gradeData,
+            'meta' => [
+                'current_page' => (int) $page,
+                'per_page' => $perPage,
+                'total' => $total,
+                'last_page' => ceil($total / $perPage),
+            ],
+        ]);
+    }
+
+    /**
+     * Get fee structure for a grade
+     */
+    public function getGradeFees(Request $request, int $gradeId): JsonResponse
+    {
+        $user = $request->user();
+
+        $grade = Grade::where('institute_id', $user->institute_id)
+            ->findOrFail($gradeId);
+
+        $academicYear = $request->input('academic_year');
+        
+        $schedules = FeeSchedule::where('grade_id', $gradeId)
+            ->with(['feeType', 'feeCategory'])
+            ->when($academicYear, function ($q) use ($academicYear) {
+                $yearParts = explode('-', $academicYear);
+                $startDate = $yearParts[0] . '-07-01';
+                $endDate = $yearParts[1] . '-06-30';
+                $q->where('applicable_from', '>=', $startDate)
+                  ->where('applicable_from', '<=', $endDate);
+            })
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'grade_id' => $gradeId,
+                'grade_name' => $grade->name,
+                'academic_year' => $academicYear,
+                'total_fees' => $schedules->count(),
+                'schedules' => \App\Http\Resources\FeeScheduleResource::collection($schedules),
+            ],
+        ]);
+    }
+
+    /**
+     * Delete all fee schedules for a grade
+     */
+    public function deleteGradeFees(Request $request, int $gradeId): JsonResponse
+    {
+        $user = $request->user();
+
+        $grade = Grade::where('institute_id', $user->institute_id)
+            ->findOrFail($gradeId);
+
+        $academicYear = $request->input('academic_year');
+        $deleteAll = $request->input('all', false);
+        
+        $query = FeeSchedule::where('grade_id', $gradeId);
+        
+        // If academic_year is provided and delete_all is not true, filter by year
+        if ($academicYear && !$deleteAll) {
+            $yearParts = explode('-', $academicYear);
+            $startDate = $yearParts[0] . '-07-01';
+            $endDate = $yearParts[1] . '-06-30';
+            $query->where('applicable_from', '>=', $startDate)
+                  ->where('applicable_from', '<=', $endDate);
+        }
+
+        $deleted = $query->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$deleted} fee schedule(s) deleted for Grade {$grade->name}",
+            'data' => ['deleted' => $deleted],
+        ]);
+    }
+
+    /**
+     * Get month number from name
+     */
+    private function getMonthNumber(string $month): string
+    {
+        $months = [
+            'January' => '01', 'February' => '02', 'March' => '03', 'April' => '04',
+            'May' => '05', 'June' => '06', 'July' => '07', 'August' => '08',
+            'September' => '09', 'October' => '10', 'November' => '11', 'December' => '12',
+        ];
+        return $months[ucfirst($month)] ?? '01';
     }
 }

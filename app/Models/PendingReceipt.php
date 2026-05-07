@@ -13,6 +13,8 @@ class PendingReceipt extends Model
     protected $fillable = [
         'student_id',
         'transaction_id',
+        'academic_year',
+        'month',
         'amount',
         'due_date',
         'status',

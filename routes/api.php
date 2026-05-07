@@ -248,14 +248,29 @@ Route::delete('/exam-types/{id}', [ExamTypeController::class, 'destroy']);
         Route::post('/fee-schedules', [FeeScheduleController::class, 'store']);
         Route::delete('/fee-schedules/bulk-delete', [FeeScheduleController::class, 'bulkDestroy']);
         Route::post('/fee-schedules/generate-student-fees', [FeeScheduleController::class, 'generateStudentFees']);
+        
+        // New: Bulk save all fees for a grade at once
+        Route::post('/fee-structure/grade/{gradeId}/save', [FeeScheduleController::class, 'saveGradeFees']);
+        Route::get('/fee-structure/grade/{gradeId}', [FeeScheduleController::class, 'getGradeFees']);
+        Route::delete('/fee-structure/grade/{gradeId}', [FeeScheduleController::class, 'deleteGradeFees']);
+        
+        // Get all grades fee structure (with pagination & filters)
+        Route::get('/fee-structure/all', [FeeScheduleController::class, 'getAllGradesFees']);
+        
         Route::get('/fee-schedules/{id}', [FeeScheduleController::class, 'show']);
         Route::put('/fee-schedules/{id}', [FeeScheduleController::class, 'update']);
         Route::delete('/fee-schedules/{id}', [FeeScheduleController::class, 'destroy']);
-        Route::post('/fee-schedules/generate-student-fees', [FeeScheduleController::class, 'generateStudentFees']);
 
         // Fee Slips (Generate with transaction_id for bank payments)
         Route::post('/fee-slips/generate', [FeeSlipController::class, 'generatebulk']);
         Route::post('/fee-slips/generate/{studentId}', [FeeSlipController::class, 'generateSingle']);
+        
+        // View generated fee slips
+        Route::get('/fee-slips', [FeeSlipController::class, 'index']);
+        Route::delete('/fee-slips/bulk-delete', [FeeSlipController::class, 'bulkDelete']);
+        Route::delete('/fee-slips/delete-all', [FeeSlipController::class, 'deleteAll']);
+        Route::get('/fee-slips/{id}', [FeeSlipController::class, 'view']);
+        Route::delete('/fee-slips/{id}', [FeeSlipController::class, 'delete']);
     });
 
     // Role & Permission Routes (Admin only)
