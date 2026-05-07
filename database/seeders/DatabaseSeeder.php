@@ -15,15 +15,15 @@ class DatabaseSeeder extends Seeder
             InstituteSeeder::class,
             GradeSeeder::class,
             SectionSeeder::class,
+            StudentSeeder::class,
             SubjectSeeder::class,
             FeeTypeSeeder::class,
             FeeCategorySeeder::class,
             FeeScheduleSeeder::class,
-            StudentSeeder::class,
             BankAccountSeeder::class,
             DiscountSeeder::class,
             ExamTypeSeeder::class,
-            FakerSeeder::class,
+            // FakerSeeder::class, // TODO: Fix duplicate grade error
         ]);
     }
 }
