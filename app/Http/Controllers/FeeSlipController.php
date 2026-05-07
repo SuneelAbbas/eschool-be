@@ -17,13 +17,13 @@ class FeeSlipController extends Controller
      * Generate fee slips for ALL students in a grade (bulk)
      * Creates PendingReceipt records with transaction_id
      */
-    public function generateBulk(Request $request): JsonResponse
+    public function generatebulk(Request $request): JsonResponse
     {
         $user = $request->user();
         
         $validated = $request->validate([
             'grade_id' => 'required|exists:grades,id',
-            'month' => 'required|string', // "May", "June", or "All"
+            'month' => 'required|string',
             'academic_year' => 'required|string|size:9',
             'due_date' => 'nullable|date',
         ]);
@@ -122,10 +122,10 @@ class FeeSlipController extends Controller
     private function generateSlipForStudent(Student $student, string $month, string $academicYear, ?string $dueDate): ?array
     {
         // Get pending fees for student
-        $feesQuery = StudentFee::where('student_id', $student->id)
+        $feesQuery = StudentFee::with(['feeType', 'feeSchedule'])
+            ->where('student_id', $student->id)
             ->where('status', 'pending')
-            ->where('academic_year', $academicYear)
-            ->with('feeType');
+            ->where('academic_year', $academicYear);
 
         // Filter by month
         if (strtolower($month) !== 'all') {

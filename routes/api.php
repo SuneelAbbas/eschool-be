@@ -244,7 +244,7 @@ Route::delete('/exam-types/{id}', [ExamTypeController::class, 'destroy']);
         Route::post('/fee-schedules/generate-student-fees', [FeeScheduleController::class, 'generateStudentFees']);
 
         // Fee Slips (Generate with transaction_id for bank payments)
-        Route::post('/fee-slips/generate', [FeeSlipController::class, 'generateBulk']);
+        Route::post('/fee-slips/generate', [FeeSlipController::class, 'generatebulk']);
         Route::post('/fee-slips/generate/{studentId}', [FeeSlipController::class, 'generateSingle']);
     });
 
