@@ -7,6 +7,7 @@ use App\Models\StudentFee;
 use App\Models\FeeSchedule;
 use App\Models\PendingReceipt;
 use App\Models\Grade;
+use App\Http\Resources\PendingReceiptResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
@@ -149,6 +150,17 @@ class FeeSlipController extends Controller
         $slips = [];
 
         foreach ($students as $student) {
+            // Skip if a receipt already exists for this month/year (paid or pending)
+            $existingReceipt = PendingReceipt::where('student_id', $student->id)
+                ->where('month', $validated['month'])
+                ->where('academic_year', $validated['academic_year'])
+                ->first();
+
+            if ($existingReceipt) {
+                $skipped++;
+                continue;
+            }
+
             $result = $this->generateSlipForStudent(
                 $student,
                 $validated['month'],
@@ -311,6 +323,7 @@ class FeeSlipController extends Controller
         
         $perPage = $request->input('per_page', 15);
         $gradeId = $request->input('grade_id');
+        $sectionId = $request->input('section_id');
         $month = $request->input('month');
         $academicYear = $request->input('academic_year');
         $status = $request->input('status');
@@ -326,6 +339,12 @@ class FeeSlipController extends Controller
         if ($gradeId) {
             $query->whereHas('student.section', function ($q) use ($gradeId) {
                 $q->where('grade_id', $gradeId);
+            });
+        }
+
+        if ($sectionId) {
+            $query->whereHas('student.section', function ($q) use ($sectionId) {
+                $q->where('id', $sectionId);
             });
         }
 
@@ -360,11 +379,24 @@ class FeeSlipController extends Controller
             $query->whereDate('created_at', '<=', $toDate);
         }
 
+        $paginate = $request->input('paginate', true);
+
+        if ($paginate === false || $paginate === 'false') {
+            $receipts = $query->orderBy('created_at', 'desc')->get();
+            return response()->json([
+                'success' => true,
+                'data' => PendingReceiptResource::collection($receipts),
+                'meta' => [
+                    'total' => $receipts->count(),
+                ],
+            ]);
+        }
+
         $receipts = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
         return response()->json([
             'success' => true,
-            'data' => $receipts->items(),
+            'data' => PendingReceiptResource::collection($receipts),
             'meta' => [
                 'current_page' => $receipts->currentPage(),
                 'last_page' => $receipts->lastPage(),
@@ -387,25 +419,94 @@ class FeeSlipController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => [
-                'id' => $receipt->id,
-                'transaction_id' => $receipt->transaction_id,
-                'amount' => $receipt->amount,
-                'due_date' => $receipt->due_date,
-                'month' => $receipt->month,
-                'academic_year' => $receipt->academic_year,
-                'status' => $receipt->status,
-                'fee_breakdown' => is_string($receipt->fee_breakdown) 
-                    ? json_decode($receipt->fee_breakdown, true) 
-                    : $receipt->fee_breakdown,
-                'student' => [
-                    'id' => $receipt->student->id,
-                    'name' => $receipt->student->first_name . ' ' . $receipt->student->last_name,
-                    'registration_number' => $receipt->student->registration_number,
-                    'grade' => $receipt->student->section?->grade?->name,
-                    'section' => $receipt->student->section?->name,
-                ],
-            ],
+            'data' => new PendingReceiptResource($receipt),
+        ]);
+    }
+
+    /**
+     * View multiple fee slips with full details
+     */
+    public function bulkView(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        
+        $ids = $request->input('ids', []);
+        
+        if (empty($ids)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No IDs provided',
+            ], 422);
+        }
+
+        $receipts = \App\Models\PendingReceipt::whereHas('student', function ($q) use ($user) {
+                $q->where('institute_id', $user->institute_id);
+            })->with(['student.section.grade'])
+            ->whereIn('id', $ids)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => PendingReceiptResource::collection($receipts),
+            'meta' => ['total' => $receipts->count()],
+        ]);
+    }
+
+    /**
+     * Record payment for a fee slip
+     */
+    public function recordPayment(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+        
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:0',
+            'payment_date' => 'required|date',
+            'payment_method' => 'required|string|in:cash,bank_transfer,card,upi',
+            'bank_reference' => 'nullable|string|max:255',
+        ]);
+
+        $receipt = \App\Models\PendingReceipt::whereHas('student', function ($q) use ($user) {
+                $q->where('institute_id', $user->institute_id);
+            })->with(['student.section.grade'])->findOrFail($id);
+
+        if ($receipt->status === 'paid') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This receipt is already paid',
+            ], 400);
+        }
+
+        if ((float) $validated['amount'] !== (float) $receipt->amount) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Amount mismatch. Expected: ' . $receipt->amount,
+            ], 422);
+        }
+
+        // Update PendingReceipt
+        $receipt->update([
+            'status' => 'paid',
+            'paid_at' => $validated['payment_date'],
+            'paid_by' => $user->id,
+            'payment_method' => $validated['payment_method'],
+            'bank_reference' => $validated['bank_reference'] ?? null,
+        ]);
+
+        // Also mark related StudentFee records as paid
+        $breakdown = is_string($receipt->fee_breakdown) 
+            ? json_decode($receipt->fee_breakdown, true) 
+            : $receipt->fee_breakdown;
+        
+        if (!empty($breakdown)) {
+            $feeIds = collect($breakdown)->pluck('student_fee_id')->filter();
+            \App\Models\StudentFee::whereIn('id', $feeIds)->update(['status' => 'paid']);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment recorded successfully',
+            'data' => new PendingReceiptResource($receipt->fresh()),
         ]);
     }
 

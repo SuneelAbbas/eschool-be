@@ -8,8 +8,6 @@ use App\Models\Student;
 use App\Models\GradeFee;
 use App\Models\StudentFee;
 use App\Models\FeeType;
-use App\Models\FeePayment;
-use App\Models\PaymentRecord;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -538,24 +536,20 @@ class StudentController extends Controller
             ];
         });
 
-        // Get payments
-        $payments = \App\Models\FeePayment::with(['receiver'])
-            ->where('student_id', $id)
-            ->orderBy('payment_date', 'desc')
+        // Get payments from PendingReceipt
+        $payments = \App\Models\PendingReceipt::where('student_id', $id)
+            ->where('status', 'paid')
+            ->orderBy('paid_at', 'desc')
             ->limit(20)
             ->get()
             ->map(function ($payment) {
                 return [
                     'id' => $payment->id,
-                    'receipt_number' => $payment->receipt_number,
+                    'receipt_number' => $payment->transaction_id,
                     'amount' => (float) $payment->amount,
-                    'payment_date' => $payment->payment_date,
+                    'payment_date' => $payment->paid_at,
                     'payment_method' => $payment->payment_method,
                     'bank_reference' => $payment->bank_reference,
-                    'receiver' => $payment->receiver ? [
-                        'first_name' => $payment->receiver->first_name,
-                        'last_name' => $payment->receiver->last_name,
-                    ] : null,
                 ];
             });
 

@@ -59,23 +59,18 @@ class StudentFee extends Model
         return $this->belongsTo(FeeSchedule::class);
     }
 
-    public function paymentRecords(): HasMany
-    {
-        return $this->hasMany(PaymentRecord::class);
-    }
-
     public function getTotalPaidAttribute(): float
     {
-        return (float) $this->paymentRecords()->sum('amount_applied');
+        return 0;
     }
 
     public function getBalanceAttribute(): float
     {
-        return (float) $this->amount - $this->total_paid;
+        return (float) $this->amount;
     }
 
     public function getIsPaidAttribute(): bool
     {
-        return $this->balance <= 0;
+        return false;
     }
 }

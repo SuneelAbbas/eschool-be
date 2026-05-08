@@ -73,9 +73,9 @@ class Student extends Model
         return $this->belongsTo(FeeCategory::class);
     }
 
-    public function feePayments(): HasMany
+    public function pendingReceipts(): HasMany
     {
-        return $this->hasMany(FeePayment::class);
+        return $this->hasMany(PendingReceipt::class);
     }
 
     public static function generateRegistrationNumber(int $instituteId, ?int $gradeId = null): string
