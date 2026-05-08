@@ -489,52 +489,46 @@ class StudentController extends Controller
             ], 404);
         }
 
-        // Get fees with balance
-        $feesQuery = StudentFee::with(['feeType', 'feeSchedule', 'paymentRecords'])
+        // Get pending receipts (fee slips generated for student)
+        $receiptsQuery = \App\Models\PendingReceipt::with(['student'])
             ->where('student_id', $id)
             ->where('academic_year', $academicYear);
         
         // Filter by month if not 'all'
         if (strtolower($month) !== 'all') {
-            $feesQuery->where(function ($q) use ($month) {
-                $q->where('month', $month)
-                   ->orWhere(function ($q2) {
-                       $q2->where('month', '')
-                           ->orWhereNull('month');
-                   });
-            });
+            $receiptsQuery->where('month', $month);
         }
 
-        $fees = $feesQuery->orderBy('created_at', 'desc')->get();
+        $receipts = $receiptsQuery->orderBy('created_at', 'desc')->get();
 
+        // Build fees list from receipts
+        $feesData = [];
         $totalOwed = 0;
         $totalPaid = 0;
 
-        $feesWithBalance = $fees->map(function ($fee) use (&$totalOwed, &$totalPaid) {
-            $feeAmount = (float) $fee->amount;
-            $paidAmount = (float) $fee->paymentRecords->sum('amount_applied');
-            
-            $totalOwed += $feeAmount;
+        foreach ($receipts as $receipt) {
+            $amount = (float) $receipt->amount;
+            $isPaid = $receipt->status === 'paid';
+            $paidAmount = $isPaid ? $amount : 0;
+
+            $totalOwed += $amount;
             $totalPaid += $paidAmount;
 
-            return [
-                'id' => $fee->id,
-                'fee_type_id' => $fee->fee_type_id,
-                'fee_type' => [
-                    'name' => $fee->feeType?->name,
-                    'code' => $fee->feeType?->code,
-                    'type' => $fee->feeType?->type,
-                ],
-                'fee_schedule_id' => $fee->fee_schedule_id,
-                'academic_year' => $fee->academic_year,
-                'month' => $fee->month,
-                'amount' => $feeAmount,
+            $feesData[] = [
+                'id' => $receipt->id,
+                'transaction_id' => $receipt->transaction_id,
+                'month' => $receipt->month,
+                'amount' => $amount,
                 'paid' => $paidAmount,
-                'balance' => $feeAmount - $paidAmount,
-                'status' => $fee->status,
-                'effective_from' => $fee->effective_from?->format('Y-m-d'),
+                'balance' => $amount - $paidAmount,
+                'status' => $receipt->status,
+                'due_date' => $receipt->due_date,
+                'paid_at' => $receipt->paid_at,
+                'payment_method' => $receipt->payment_method,
             ];
-        });
+        }
+
+        $balance = $totalOwed - $totalPaid;
 
         // Get payments from PendingReceipt
         $payments = \App\Models\PendingReceipt::where('student_id', $id)
@@ -583,11 +577,11 @@ class StudentController extends Controller
             'data' => [
                 'student' => new StudentResource($student),
                 'fees' => [
-                    'fees' => $feesWithBalance,
+                    'fees' => $feesData,
                     'summary' => [
                         'total_owed' => $totalOwed,
                         'total_paid' => $totalPaid,
-                        'balance' => $totalOwed - $totalPaid,
+                        'balance' => $balance,
                     ],
                 ],
                 'payments' => $payments,
