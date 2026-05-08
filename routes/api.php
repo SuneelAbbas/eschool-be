@@ -23,6 +23,7 @@ use App\Http\Controllers\FeeTypeController;
 use App\Http\Controllers\FeeCategoryController;
 use App\Http\Controllers\FeeScheduleController;
 use App\Http\Controllers\FeeSlipController;
+use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/institute-register', [AuthController::class, 'register']);
@@ -53,6 +54,9 @@ Route::middleware('auth:sanctum', 'role:admin')->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
+
+    // Dashboard
+    Route::get('/dashboard', [DashboardController::class, 'stats']);
 
     Route::middleware('role:admin,teacher,accountant')->group(function () {
         Route::get('/grades', [GradeController::class, 'index']);
