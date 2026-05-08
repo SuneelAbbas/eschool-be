@@ -57,10 +57,11 @@ class FeeSlipController extends Controller
 
         // If no fees exist OR force regenerate is true, create them from schedules
         if ($existingFeesCount == 0 || $forceRegenerate) {
-            // Delete existing fees for this grade/month/year
+            // Delete existing fees for this grade/month/year (only the requested month)
             if ($forceRegenerate && $existingFeesCount > 0) {
                 StudentFee::whereIn('student_id', $studentIds)
                     ->where('academic_year', $validated['academic_year'])
+                    ->where('month', $validated['month'])
                     ->delete();
                 
                 // Delete existing pending slips for this grade/month
@@ -68,7 +69,8 @@ class FeeSlipController extends Controller
                     $q->whereHas('section', function ($q2) use ($validated) {
                         $q2->where('grade_id', $validated['grade_id']);
                     });
-                })->where('status', 'pending')
+                })->where('month', $validated['month'])
+                  ->where('status', 'pending')
                   ->delete();
             }
 
@@ -245,8 +247,8 @@ class FeeSlipController extends Controller
         // Filter by month
         if (strtolower($month) !== 'all') {
             $feesQuery->where(function ($q) use ($month) {
-                $q->where('month', $month)           // Monthly fees for this month
-                   ->orWhere(function ($q2) {       // One-time fees (empty month)
+                $q->where('month', $month)
+                   ->orWhere(function ($q2) {
                        $q2->where('month', '')
                            ->orWhereNull('month');
                    });
@@ -276,9 +278,19 @@ class FeeSlipController extends Controller
             ];
         }
 
-        // Calculate due date (default: 7th of current month)
+        // Calculate due date (default: 7th of requested month)
         if (!$dueDate) {
-            $dueDate = Carbon::now()->day(7)->toDateString();
+            $monthNum = Carbon::parse("{$month} 1, 2025")->month;
+            
+            // For academic year 2025-2026: July-Dec = 2025, Jan-Jun = 2026
+            if ($academicYear) {
+                $parts = explode('-', $academicYear);
+                $year = ($monthNum >= 7) ? $parts[0] : $parts[1];
+            } else {
+                $year = date('Y');
+            }
+            
+            $dueDate = Carbon::createFromDate($year, $monthNum, 7)->toDateString();
         }
 
         // Generate transaction_id
