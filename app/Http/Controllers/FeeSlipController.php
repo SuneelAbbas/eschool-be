@@ -315,6 +315,54 @@ class FeeSlipController extends Controller
     }
 
     /**
+     * Get fee slip summary (counts by status)
+     */
+    public function summary(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        
+        $gradeId = $request->input('grade_id');
+        $academicYear = $request->input('academic_year');
+        $month = $request->input('month');
+
+        $baseQuery = \App\Models\PendingReceipt::whereHas('student', function ($q) use ($user) {
+            $q->where('institute_id', $user->institute_id);
+        });
+
+        if ($gradeId) {
+            $baseQuery->whereHas('student.section', function ($q) use ($gradeId) {
+                $q->where('grade_id', $gradeId);
+            });
+        }
+
+        if ($academicYear) {
+            $baseQuery->where('academic_year', $academicYear);
+        }
+
+        if ($month) {
+            $baseQuery->where('month', $month);
+        }
+
+        $total = (clone $baseQuery)->count();
+        $paid = (clone $baseQuery)->where('status', 'paid')->count();
+        $pending = (clone $baseQuery)->where('status', 'pending')->count();
+        $overdue = (clone $baseQuery)
+            ->where('status', 'pending')
+            ->where('due_date', '<', now()->toDateString())
+            ->count();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'total' => $total,
+                'paid' => $paid,
+                'pending' => $pending,
+                'overdue' => $overdue,
+            ],
+        ]);
+    }
+
+    /**
      * View all generated fee slips (pending receipts)
      */
     public function index(Request $request): JsonResponse
@@ -356,7 +404,10 @@ class FeeSlipController extends Controller
             $query->where('academic_year', $academicYear);
         }
 
-        if ($status) {
+        if ($status === 'overdue') {
+            $query->where('status', 'pending')
+                  ->where('due_date', '<', now()->toDateString());
+        } elseif ($status) {
             $query->where('status', $status);
         }
 

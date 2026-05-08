@@ -267,6 +267,7 @@ Route::delete('/exam-types/{id}', [ExamTypeController::class, 'destroy']);
         
         // View generated fee slips
         Route::get('/fee-slips', [FeeSlipController::class, 'index']);
+        Route::get('/fee-slips/stats', [FeeSlipController::class, 'summary']);
         Route::post('/fee-slips/bulk-view', [FeeSlipController::class, 'bulkView']);
         Route::delete('/fee-slips/bulk-delete', [FeeSlipController::class, 'bulkDelete']);
         Route::delete('/fee-slips/delete-all', [FeeSlipController::class, 'deleteAll']);

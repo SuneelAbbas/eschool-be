@@ -9,11 +9,18 @@ class PendingReceiptResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $status = $this->status;
+        
+        // If pending and past due date, show as overdue
+        if ($this->status === 'pending' && $this->due_date && strtotime($this->due_date) < strtotime(now()->toDateString())) {
+            $status = 'overdue';
+        }
+
         return [
             'id' => $this->id,
             'transaction_id' => $this->transaction_id,
             'amount' => (string) $this->amount,
-            'status' => $this->status,
+            'status' => $status,
             'due_date' => $this->due_date,
             'month' => $this->month,
             'academic_year' => $this->academic_year,
