@@ -286,11 +286,11 @@ class FeeScheduleController extends Controller
         $schedules = [];
 
         foreach ($validated['fees'] as $feeData) {
-            // Check if schedule already exists for this grade + fee_type + date range
+            // Check if schedule already exists for this grade + fee_type + academic year
+            // Use a range check on applicable_from to handle any date within academic year
             $existing = FeeSchedule::where('grade_id', $gradeId)
                 ->where('fee_type_id', $feeData['fee_type_id'])
-                ->where('applicable_from', '>=', $startDate)
-                ->where('applicable_from', '<=', $endDate)
+                ->whereBetween('applicable_from', [$startDate, $endDate])
                 ->first();
 
             $scheduleData = [
