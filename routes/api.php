@@ -24,10 +24,14 @@ use App\Http\Controllers\FeeCategoryController;
 use App\Http\Controllers\FeeScheduleController;
 use App\Http\Controllers\FeeSlipController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\InstituteController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/institute-register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+
+// Public institute status endpoint
+Route::get('/institutes/{id}/status', [InstituteController::class, 'getStatus']);
 
 // Institute settings (admin only)
 Route::middleware('auth:sanctum', 'role:admin')->group(function () {
