@@ -23,12 +23,19 @@
                 <p class="text-xs text-stone-400 mt-1">Sign in to your account</p>
             </div>
 
-            <form>
+            @if ($errors->any())
+                <div class="mb-5 rounded-xl bg-red-50 border border-red-200 px-4 py-3">
+                    <p class="text-xs font-semibold text-red-700">{{ $errors->first() }}</p>
+                </div>
+            @endif
+
+            <form method="POST" action="{{ route('admin.login') }}">
+                @csrf
                 <div class="flex flex-col gap-5">
                     <div>
                         <label for="email" class="block text-sm font-semibold text-stone-700 mb-1.5">Email</label>
-                        <input type="email" id="email" name="email" placeholder="you@example.com"
-                               class="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-900 placeholder-stone-400 outline-none transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20">
+                        <input type="email" id="email" name="email" value="{{ old('email') }}" placeholder="you@example.com"
+                               class="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-900 placeholder-stone-400 outline-none transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 @error('email') border-red-300 @enderror">
                     </div>
                     <div>
                         <label for="password" class="block text-sm font-semibold text-stone-700 mb-1.5">Password</label>
